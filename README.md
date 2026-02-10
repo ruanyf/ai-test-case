@@ -39,6 +39,8 @@ Credits: [Landingpage-frontend-eval](https://github.com/alejandro-ao/landingpage
 
 生成一个网页上的 3D 沙盒，以动画形式模拟太阳系的天体运动，能够调节质量、位置、速度等参数，并能添加新的天体。
 
+提示词
+
 ```markdown
 You are building an interactive 3D educational sandbox in the browser that *visually* evokes special/general relativity, but uses a simplified n-body gravity approximation. Favor stability, clarity, and smooth interactivity over physical completeness.
 
@@ -103,6 +105,8 @@ You are building an interactive 3D educational sandbox in the browser that *visu
 
 生成网页游戏“愤怒的小鸟”。
 
+提示词
+
 ```markdown
 Create a one-level Angry Birds style browser game with slingshot projectile physics.
 
@@ -118,6 +122,8 @@ Create a one-level Angry Birds style browser game with slingshot projectile phys
 ## Case04
 
 目录`case04/starter`是一个基于 PHP 语言 Laravel 框架的 Web 应用，将其改为基于 JavaScript 语言 Next.js 框架。
+
+提示词
 
 ```markdown
 Migrate this Laravel app to Next.js.
