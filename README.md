@@ -1,4 +1,4 @@
-这里收集了 AI 编程的测试用例。
+这里收集 AI 编程的测试用例，用来评估 AI 模型的代码生成能力。
 
 ## 目录
 
@@ -6,6 +6,7 @@
 1. [3D 沙盒测试](#Case02)
 1. [网页游戏测试](#Case03)
 1. [Laravel 迁移 Next.js](#Case04)
+1. [网页动画：麦克斯韦小恶魔](#Case05)
 
 ## Case01
 
@@ -150,7 +151,44 @@ Start by analyzing the Laravel app structure, then create the Next.js equivalent
 
 Credits: [laravel-to-nextjs-migration-eval](https://github.com/alejandro-ao/laravel-to-nextjs-migration-eval)
 
+## Case05
+
+生成“[麦克斯韦小恶魔](https://zh.wikipedia.org/wiki/%E9%BA%A6%E5%85%8B%E6%96%AF%E9%9F%A6%E5%A6%96)”实验的网页模拟器。
+
+提示词
+
+```markdown
+# Maxwell Demon HTML Simulation: two chambers, particles, real-time temps, entropy, chart
+
+- Two chambers separated by a wall with a small gate
+- 100+ particles bouncing with elastic collisions
+- Particle color = velocity (blue=slow/cold, red=fast/hot)
+- Initially: both chambers have mixed temperatures
+
+## The Demon:
+- Guards the gate between chambers
+- Opens gate to let FAST particles move RIGHT
+- Opens gate to let SLOW particles move LEFT
+- Visualize the demon (small sprite or icon at the gate)
+
+## Display:
+- Real-time temperature (avg velocity) for each chamber
+- Live chart showing temperature divergence over time
+- Particle count per chamber
+- Entropy indicator (decreasing = "violation")
+
+## Controls:
+- Start/Pause
+- Reset
+- Toggle demon ON/OFF (to show natural equilibrium vs demon)
+- Speed slider
+
+Style: Dark background, glowing particles, smooth animations.
+Use vanilla JS + Canvas, no libraries except Chart.js for the graph.
+```
+
 ## 来源
 
 - Alejandro AO, [GPT-5.3 Codex vs Claude Opus 4.6: Real Coding Tasks](https://www.youtube.com/watch?v=c31Ow23mErE)
+- Alejandro AO, [Kimi Code vs Claude Code vs Codex - NEW Best For Coding?](https://www.youtube.com/watch?v=IjjMsfhJEcE)
 
