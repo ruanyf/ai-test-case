@@ -1,12 +1,13 @@
-这里收集 AI 编程的测试用例，用来评估 AI 模型的代码生成能力。
+这里收集 AI 编程的测试用例，用来评估 AI 模型的编码能力。
 
 ## 目录
 
-1. [网页设计测试](#Case01)
-1. [3D 沙盒测试](#Case02)
-1. [网页游戏测试](#Case03)
-1. [Laravel 迁移 Next.js](#Case04)
-1. [网页动画：麦克斯韦小恶魔](#Case05)
+1. [UI 设计测试：网页设计测试](#Case01)
+1. [网页 3D 动画测试：天体模拟器](#Case02)
+1. [网页游戏测试：愤怒的小鸟](#Case03)
+1. [全栈应用测试：Laravel 迁移 Next.js](#Case04)
+1. [网页 2D 动画测试：麦克斯韦小恶魔](#Case05)
+1. [桌面应用测试：macOS 网址演示 App](#Case06)
 
 ## Case01
 
@@ -186,6 +187,28 @@ Credits: [laravel-to-nextjs-migration-eval](https://github.com/alejandro-ao/lara
 Style: Dark background, glowing particles, smooth animations.
 Use vanilla JS + Canvas, no libraries except Chart.js for the graph.
 ```
+
+## Case06
+
+生成 Swift 语言的 macOS 原生应用，可以像 PPT 那样依次展示指定网页。
+
+提示词（第一阶段）
+
+```markdown
+Build a SwiftUI app for giving presentations where every slide is a URL. The app starts as a window with a webview on the right and a UI on the left for adding, removing and reordering the sequence of URLs. Then you click Play in a menu and the app goes full screen and the left and right keys switch between URLs.
+```
+
+![](img/case06a.jpg)
+
+提示词（第二阶段）
+
+```markdown
+Add a web server which listens on 0.0.0.0:9123—the web server serves a single mobile-friendly page with prominent left and right buttons—clicking those buttons switches the slide left and right—there is also a button to start presentation mode or stop depending on the mode it is in.
+```
+
+![](img/case06b.jpg)
+
+Credits: [Simon Willison](https://simonwillison.net/2026/Feb/25/present/)
 
 ## 来源
 
