@@ -2,16 +2,19 @@
 
 ## 目录
 
-1. [UI 设计测试：网页设计测试](#Case01)
-1. [网页 3D 动画测试：天体模拟器](#Case02)
-1. [网页游戏测试：愤怒的小鸟](#Case03)
-1. [全栈应用测试：Laravel 迁移 Next.js](#Case04)
-1. [网页 2D 动画测试：麦克斯韦小恶魔](#Case05)
-1. [桌面应用测试：macOS 网址演示 App](#Case06)
+1. [UI 设计测试] [网页设计测试](#Case01)
+1. [网页 3D 动画测试] [天体模拟器](#Case02)
+1. [网页游戏测试] [愤怒的小鸟](#Case03)
+1. [全栈应用测试] [Laravel 迁移 Next.js](#Case04)
+1. [网页 2D 动画测试] [麦克斯韦小恶魔](#Case05)
+1. [桌面应用测试] [macOS 网址演示 App](#Case06)
+1. [命令行工具测试] [词云生成](#Case07)
 
 ## Case01
 
 目录`case01`是一个简陋的网页，将其重构为一个美观易用的登陆页。
+
+![](img/case01.webp)
 
 提示词
 
@@ -40,6 +43,8 @@ Credits: [Landingpage-frontend-eval](https://github.com/alejandro-ao/landingpage
 ## Case02
 
 生成一个网页上的 3D 沙盒，以动画形式模拟太阳系的天体运动，能够调节质量、位置、速度等参数，并能添加新的天体。
+
+![](img/case02.webp)
 
 提示词
 
@@ -107,6 +112,8 @@ You are building an interactive 3D educational sandbox in the browser that *visu
 
 生成网页游戏“愤怒的小鸟”。
 
+![](img/case03.webp)
+
 提示词
 
 ```markdown
@@ -124,6 +131,8 @@ Create a one-level Angry Birds style browser game with slingshot projectile phys
 ## Case04
 
 目录`case04/starter`是一个基于 PHP 语言 Laravel 框架的 Web 应用，将其改为基于 JavaScript 语言 Next.js 框架。
+
+![](img/case04.webp)
 
 提示词
 
@@ -155,6 +164,8 @@ Credits: [laravel-to-nextjs-migration-eval](https://github.com/alejandro-ao/lara
 ## Case05
 
 生成“[麦克斯韦小恶魔](https://zh.wikipedia.org/wiki/%E9%BA%A6%E5%85%8B%E6%96%AF%E9%9F%A6%E5%A6%96)”实验的网页模拟器。
+
+![](img/case05.webp)
 
 提示词
 
@@ -209,6 +220,32 @@ Add a web server which listens on 0.0.0.0:9123—the web server serves a single 
 ![](img/case06b.jpg)
 
 Credits: [Simon Willison](https://simonwillison.net/2026/Feb/25/present/)
+
+## Case07
+
+生成一个 Rust 语言的命令行工具，将文本输入转换为词云，以 PNG 图片输出。
+
+![](img/case07.png)
+
+提示词
+
+```markdown
+Create and test a Rust CLI tool that can create "word cloud" data visualizations given a long input text
+
+It should accept an optional filename for the input file, train from stdin if one is not provided
+
+It should generate wordcloud.png or wordcloud-2.png etc if the files already exist - a -o filename option can be used to force the filename
+
+Use sensible result width and height but provide more options for customizing them, same for color scheme
+
+Test it on data from https://simonwillison.net/dashboard/all-content-in-a-month.json?month=2026-02 and commit the resulting PNG with your file
+
+In the report say it was inspired by Max Woolf in https://minimaxir.com/2026/02/ai-agent-coding/
+
+Don’t use an existing crate for anything other than png generating and text rendering
+```
+
+Credits: [Simon Willison](https://simonwillison.net/guides/agentic-engineering-patterns/interactive-explanations/)
 
 ## 来源
 
