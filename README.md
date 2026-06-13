@@ -9,6 +9,7 @@
 1. [网页 2D 动画测试] [麦克斯韦小恶魔](#Case05)
 1. [桌面应用测试] [macOS 网址演示 App](#Case06)
 1. [命令行工具测试] [词云生成](#Case07)
+1. [SVG 生成测试] [骑自行车的鹈鹕](#Case08)
 
 ## Case01
 
@@ -246,6 +247,18 @@ Don’t use an existing crate for anything other than png generating and text re
 ```
 
 Credits: [Simon Willison](https://simonwillison.net/guides/agentic-engineering-patterns/interactive-explanations/)
+
+## Case08
+
+生成一个 SVG 图片，内容是骑自行车的鹈鹕。
+
+![](img/case08.webp)
+
+提示词
+
+```markdown
+Generate an SVG of a pelican riding a bicycle.
+```
 
 ## 来源
 
