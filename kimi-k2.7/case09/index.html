@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>墨流し - Ink Flow Diffusion</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #e8e4d9; }
+    canvas { display: block; width: 100%; height: 100%; }
+    .ui {
+      position: absolute;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 20px;
+      background: rgba(255, 255, 255, 0.72);
+      border-radius: 999px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+      backdrop-filter: blur(10px);
+      font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif;
+      font-size: 13px;
+      color: #333;
+      user-select: none;
+    }
+    .swatch {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform .15s, border-color .15s;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+    }
+    .swatch.active { border-color: #333; transform: scale(1.12); }
+    .btn {
+      padding: 7px 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(0,0,0,0.12);
+      background: rgba(255,255,255,0.6);
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn:hover { background: rgba(255,255,255,0.9); }
+    .title {
+      position: absolute;
+      top: 32px; left: 32px;
+      writing-mode: vertical-rl;
+      text-orientation: upright;
+      font-family: "Hiragino Mincho ProN", "Noto Serif JP", serif;
+      font-size: 26px;
+      letter-spacing: 0.35em;
+      color: #2b2b2b;
+      opacity: 0.85;
+      pointer-events: none;
+    }
+    .subtitle {
+      position: absolute;
+      top: 36px; left: 72px;
+      writing-mode: vertical-rl;
+      font-family: "Hiragino Sans", sans-serif;
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: #5a5a5a;
+      opacity: 0.7;
+      pointer-events: none;
+    }
+    .hint {
+      position: absolute;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: "Hiragino Sans", sans-serif;
+      font-size: 11px;
+      color: #666;
+      opacity: 0.7;
+      pointer-events: none;
+      letter-spacing: 0.05em;
+    }
+  </style>
+</head>
+<body>
+  <div class="title">墨流し</div>
+  <div class="subtitle">SUMINAGASHI · INK FLOW</div>
+  <div class="hint">拖动鼠标引出一股墨流 · 自动渗透扩散融合</div>
+  <div class="ui">
+    <div class="swatch active" style="background:#1a1a1a" data-color="0.28,0.28,0.28" title="墨"></div>
+    <div class="swatch" style="background:#b83c3c" data-color="0.72,0.20,0.20" title="朱"></div>
+    <div class="swatch" style="background:#2a5580" data-color="0.16,0.32,0.52" title="藍"></div>
+    <div class="swatch" style="background:#357a5a" data-color="0.18,0.46,0.32" title="松"></div>
+    <div class="btn" id="autoBtn">自动演出</div>
+    <div class="btn" id="clearBtn">洗い流す</div>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+
+    // ----------------------------------------------------------------
+    // 参数
+    // ----------------------------------------------------------------
+    const SIM_RES = 512;
+    const DYE_RES = 1024;
+    const DENSITY_DISSIPATION = 0.9985;
+    const VELOCITY_DISSIPATION = 0.997;
+    const PRESSURE_ITERATIONS = 28;
+    const CURL_STRENGTH = 14.0;
+    const SPLAT_RADIUS = 0.0055;
+
+    const canvas = document.createElement('canvas');
+    document.body.appendChild(canvas);
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    // ----------------------------------------------------------------
+    // 着色器辅助
+    // ----------------------------------------------------------------
+    const baseVertex = /* glsl */`
+      precision highp float;
+      attribute vec2 position;
+      varying vec2 vUv;
+      void main () {
+        vUv = position * 0.5 + 0.5;
+        gl_Position = vec4(position, 0.0, 1.0);
+      }
+    `;
+
+    const blurVertex = baseVertex;
+
+    const copyFragment = /* glsl */`
+      precision highp float;
+      uniform sampler2D uTexture;
+      varying vec2 vUv;
+      void main () {
+        gl_FragColor = texture2D(uTexture, vUv);
+      }
+    `;
+
+    const splatFragment = /* glsl */`
+      precision highp float;
+      uniform sampler2D uTarget;
+      uniform float aspectRatio;
+      uniform vec3 color;
+      uniform vec2 point;
+      uniform float radius;
+      varying vec2 vUv;
+      void main () {
+        vec2 p = vUv - point.xy;
+        p.x *= aspectRatio;
+        vec3 splat = exp(-dot(p, p) / radius) * color;
+        vec3 base = texture2D(uTarget, vUv).xyz;
+        gl_FragColor = vec4(base + splat, 1.0);
+      }
+    `;
+
+    const advectionFragment = /* glsl */`
+      precision highp float;
+      uniform sampler2D uVelocity;
+      uniform sampler2D uSource;
+      uniform vec2 texelSize;
+      uniform float dt;
+      uniform float dissipation;
+      varying vec2 vUv;
+      void main () {
+        vec2 coord = vUv - dt * texture2D(uVelocity, vUv).xy * texelSize;
+        gl_FragColor = dissipation * texture2D(uSource, coord);
+      }
+    `;
+
+    const divergenceFragment = /* glsl */`
+      precision highp float;
+      uniform sampler2D uVelocity;
+      uniform vec2 texelSize;
+      varying vec2 vUv;
+      void main () {
+        float L = texture2D(uVelocity, vUv - vec2(texelSize.x, 0.0)).x;
+        float R = texture2D(uVelocity, vUv + vec2(texelSize.x, 0.0)).x;
+        float T = texture2D(uVelocity, vUv + vec2(0.0, texelSize.y)).y;
+        float B = texture2D(uVelocity, vUv - vec2(0.0, texelSize.y)).y;
+        float div = 0.5 * (R - L + T - B);
+        gl_FragColor = vec4(div, 0.0, 0.0, 1.0);
+      }
+    `;
+
+    const curlFragment = /* glsl */`
+      precision highp float;
+      uniform sampler2D uVelocity;
+      uniform vec2 texelSize;
+      varying vec2 vUv;
+      void main () {
+        float L = texture2D(uVelocity, vUv - vec2(texelSize.x, 0.0)).y;
+        float R = texture2D(uVelocity, vUv + vec2(texelSize.x, 0.0)).y;
+        float T = texture2D(uVelocity, vUv + vec2(0.0, texelSize.y)).x;
+        float B = texture2D(uVelocity, vUv - vec2(0.0, texelSize.y)).x;
+        float vorticity = R - L - T + B;
+        gl_FragColor = vec4(vorticity, 0.0, 0.0, 1.0);
+      }
+    `;
+
+    const vorticityFragment = /* glsl */`
+      precision highp float;
+      uniform sampler2D uVelocity;
+      uniform sampler2D uCurl;
+      uniform vec2 texelSize;
+      uniform float curl;
+      uniform float dt;
+      varying vec2 vUv;
+      void main () {
+        float L = texture2D(uCurl, vUv - vec2(texelSize.x, 0.0)).x;
+        float R = texture2D(uCurl, vUv + vec2(texelSize.x, 0.0)).x;
+        float T = texture2D(uCurl, vUv + vec2(0.0, texelSize.y)).x;
+        float B = texture2D(uCurl, vUv - vec2(0.0, texelSize.y)).x;
+        float C = texture2D(uCurl, vUv).x;
+        vec2 force = 0.5 * vec2(abs(T) - abs(B), abs(R) - abs(L));
+        force /= length(force) + 0.0001;
+        force *= curl * C;
+        force.y *= -1.0;
+        vec2 vel = texture2D(uVelocity, vUv).xy;
+        gl_FragColor = vec4(vel + force * dt, 0.0, 1.0);
+      }
+    `;
+
+    const pressureFragment = /* glsl */`
+      precision highp float;
+      uniform sampler2D uPressure;
+      uniform sampler2D uDivergence;
+      uniform vec2 texelSize;
+      varying vec2 vUv;
+      void main () {
+        float L = texture2D(uPressure, vUv - vec2(texelSize.x, 0.0)).x;
+        float R = texture2D(uPressure, vUv + vec2(texelSize.x, 0.0)).x;
+        float T = texture2D(uPressure, vUv + vec2(0.0, texelSize.y)).x;
+        float B = texture2D(uPressure, vUv - vec2(0.0, texelSize.y)).x;
+        float divergence = texture2D(uDivergence, vUv).x;
+        float pressure = (L + R + T + B - divergence) * 0.25;
+        gl_FragColor = vec4(pressure, 0.0, 0.0, 1.0);
+      }
+    `;
+
+    const gradientSubtractFragment = /* glsl */`
+      precision highp float;
+      uniform sampler2D uPressure;
+      uniform sampler2D uVelocity;
+      uniform vec2 texelSize;
+      varying vec2 vUv;
+      void main () {
+        float L = texture2D(uPressure, vUv - vec2(texelSize.x, 0.0)).x;
+        float R = texture2D(uPressure, vUv + vec2(texelSize.x, 0.0)).x;
+        float T = texture2D(uPressure, vUv + vec2(0.0, texelSize.y)).x;
+        float B = texture2D(uPressure, vUv - vec2(0.0, texelSize.y)).x;
+        vec2 velocity = texture2D(uVelocity, vUv).xy;
+        velocity.xy -= vec2(R - L, T - B) * 0.5;
+        gl_FragColor = vec4(velocity, 0.0, 1.0);
+      }
+    `;
+
+    const forceFragment = /* glsl */`
+      precision highp float;
+      uniform sampler2D uVelocity;
+      uniform float time;
+      uniform float dt;
+      varying vec2 vUv;
+      void main () {
+        vec2 vel = texture2D(uVelocity, vUv).xy;
+        vec2 p = vUv * 3.0;
+        float n1 = sin(p.x + time * 0.22) * cos(p.y * 0.8 - time * 0.18);
+        float n2 = cos(p.x * 0.6 - time * 0.25) * sin(p.y + time * 0.20);
+        // 持续向右下方的微弱牵引
+        vel += vec2(0.06, 0.012) * dt;
+        vel += vec2(n1, n2) * 0.005 * dt;
+        gl_FragColor = vec4(vel, 0.0, 1.0);
+      }
+    `;
+
+    const displayFragment = /* glsl */`
+      precision highp float;
+      uniform sampler2D uDensity;
+      uniform vec2 uResolution;
+      varying vec2 vUv;
+
+      float hash(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+      }
+      float noise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        float a = hash(i);
+        float b = hash(i + vec2(1.0, 0.0));
+        float c = hash(i + vec2(0.0, 1.0));
+        float d = hash(i + vec2(1.0, 1.0));
+        return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+      }
+      float fbm(vec2 p) {
+        float v = 0.0;
+        float a = 0.5;
+        for (int i = 0; i < 4; i++) {
+          v += a * noise(p);
+          p *= 2.0;
+          a *= 0.5;
+        }
+        return v;
+      }
+
+      void main () {
+        vec2 uv = vUv;
+        // 和纸底色：微黄、纤维感
+        vec3 paper = vec3(0.92, 0.90, 0.84);
+        vec3 ink = texture2D(uDensity, uv).rgb;
+
+        // 纸张纤维
+        float grain = fbm(uv * uResolution * 0.0035) * 0.12 + fbm(uv * uResolution * 0.022) * 0.04;
+        paper -= grain * 0.09;
+
+        // 颜料浓度（变淡、透亮）
+        vec3 pigment = clamp(ink, 0.0, 1.0);
+        float maxC = max(pigment.r, max(pigment.g, pigment.b));
+        float alpha = clamp(maxC * 0.88, 0.0, 0.78);
+
+        // 渗透边缘：墨水沿纸纤维不规则扩散
+        float capillary = fbm(uv * uResolution * 0.012 + vec2(2.1, 5.3));
+        float edge = smoothstep(0.04, 0.32, alpha + capillary * 0.05);
+        float body = smoothstep(0.0, 0.65, alpha);
+        float wetEdge = edge * (1.0 - body * 0.55);
+        float coverage = body + wetEdge * 0.25;
+
+        // 提取色相，保持鲜悦；多色混合也不易死黑
+        float maxP = max(pigment.r, max(pigment.g, pigment.b));
+        vec3 hue = pigment / (maxP + 0.0001);
+        // 向纸色提亮，让墨水更透亮，但仍保留色相
+        vec3 lightInk = mix(paper, hue, 0.78);
+        // 浓处轻微压暗，保留透明水彩感
+        vec3 inkColor = mix(lightInk, hue * 0.45, coverage * 0.28);
+
+        // 淡墨渲染：纸色上轻染一层颜料
+        vec3 tinted = mix(paper, inkColor, coverage * 0.74);
+        vec3 color = mix(paper, tinted, smoothstep(0.0, 0.022, alpha));
+
+        // 湿边略微加深，增加层次
+        color *= (1.0 - wetEdge * 0.05);
+
+        // 边缘有机扰动
+        float edgeNoise = fbm(uv * uResolution * 0.016 + vec2(4.7, 1.9));
+        float edgeMask = smoothstep(0.0, 0.16, alpha + edgeNoise * 0.04);
+        color = mix(paper, color, edgeMask);
+
+        gl_FragColor = vec4(color, 1.0);
+      }
+    `;
+
+    // ----------------------------------------------------------------
+    // 框架：FBO + 全屏四边形
+    // ----------------------------------------------------------------
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
+      -1, -1, 1, -1, 1, 1,
+      -1, -1, 1, 1, -1, 1
+    ]), 2));
+
+    function createMaterial(fragment, uniforms = {}) {
+      return new THREE.RawShaderMaterial({
+        vertexShader: baseVertex,
+        fragmentShader: fragment,
+        uniforms: {
+          texelSize: { value: new THREE.Vector2(1 / SIM_RES, 1 / SIM_RES) },
+          ...uniforms
+        }
+      });
+    }
+
+    function createFBO(w, h, type = THREE.HalfFloatType, filter = THREE.LinearFilter) {
+      const rt = new THREE.WebGLRenderTarget(w, h, {
+        type,
+        minFilter: filter,
+        magFilter: filter,
+        wrapS: THREE.ClampToEdgeWrapping,
+        wrapT: THREE.ClampToEdgeWrapping,
+        depthBuffer: false,
+        stencilBuffer: false
+      });
+      rt.texture.format = THREE.RGBAFormat;
+      renderer.setRenderTarget(rt);
+      renderer.setClearColor(new THREE.Color(0, 0, 0), 1);
+      renderer.clear(true, true, true);
+      renderer.setRenderTarget(null);
+      return rt;
+    }
+
+    function createDoubleFBO(w, h, type, filter) {
+      let fbo1 = createFBO(w, h, type, filter);
+      let fbo2 = createFBO(w, h, type, filter);
+      return {
+        get read() { return fbo1; },
+        get write() { return fbo2; },
+        swap() { const t = fbo1; fbo1 = fbo2; fbo2 = t; }
+      };
+    }
+
+    const velocityFBO = createDoubleFBO(SIM_RES, SIM_RES, THREE.HalfFloatType, THREE.LinearFilter);
+    const densityFBO = createDoubleFBO(DYE_RES, DYE_RES, THREE.HalfFloatType, THREE.LinearFilter);
+    const pressureFBO = createDoubleFBO(SIM_RES, SIM_RES, THREE.HalfFloatType, THREE.NearestFilter);
+    const divergenceFBO = createFBO(SIM_RES, SIM_RES, THREE.HalfFloatType, THREE.NearestFilter);
+    const curlFBO = createFBO(SIM_RES, SIM_RES, THREE.HalfFloatType, THREE.NearestFilter);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+    const copyMaterial = createMaterial(copyFragment, { uTexture: { value: null } });
+    const splatMaterial = createMaterial(splatFragment, {
+      uTarget: { value: null },
+      aspectRatio: { value: 1 },
+      color: { value: new THREE.Vector3() },
+      point: { value: new THREE.Vector2() },
+      radius: { value: SPLAT_RADIUS }
+    });
+    const advectMaterial = createMaterial(advectionFragment, {
+      uVelocity: { value: null },
+      uSource: { value: null },
+      dt: { value: 0.016 },
+      dissipation: { value: 1.0 }
+    });
+    const divergenceMaterial = createMaterial(divergenceFragment, { uVelocity: { value: null } });
+    const curlMaterial = createMaterial(curlFragment, { uVelocity: { value: null } });
+    const vorticityMaterial = createMaterial(vorticityFragment, {
+      uVelocity: { value: null },
+      uCurl: { value: null },
+      curl: { value: CURL_STRENGTH },
+      dt: { value: 0.016 }
+    });
+    const pressureMaterial = createMaterial(pressureFragment, {
+      uPressure: { value: null },
+      uDivergence: { value: null }
+    });
+    const gradientSubtractMaterial = createMaterial(gradientSubtractFragment, {
+      uPressure: { value: null },
+      uVelocity: { value: null }
+    });
+    const forceMaterial = createMaterial(forceFragment, {
+      uVelocity: { value: null },
+      time: { value: 0 },
+      dt: { value: 0.016 }
+    });
+    const displayMaterial = createMaterial(displayFragment, {
+      uDensity: { value: null },
+      uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+    });
+
+    const mesh = new THREE.Mesh(geometry, copyMaterial);
+    scene.add(mesh);
+
+    function blit(material, target, overrideUniforms = {}) {
+      mesh.material = material;
+      for (const key in overrideUniforms) {
+        material.uniforms[key].value = overrideUniforms[key];
+      }
+      renderer.setRenderTarget(target);
+      renderer.render(scene, camera);
+      renderer.setRenderTarget(null);
+    }
+
+    // ----------------------------------------------------------------
+    // 交互 / 自动模式
+    // ----------------------------------------------------------------
+    let currentColor = new THREE.Vector3(0.10, 0.10, 0.10);
+    let autoPlay = true;
+    let pointer = { x: 0, y: 0, dx: 0, dy: 0, down: false };
+    let lastPointer = { x: 0, y: 0 };
+    let splats = [];
+
+    function getPointerPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: (e.clientX - rect.left) / rect.width,
+        y: 1.0 - (e.clientY - rect.top) / rect.height
+      };
+    }
+
+    canvas.addEventListener('pointerdown', e => {
+      pointer.down = true;
+      const p = getPointerPos(e);
+      pointer.x = p.x; pointer.y = p.y;
+      lastPointer.x = p.x; lastPointer.y = p.y;
+      splats.push({ x: p.x, y: p.y, dx: 0, dy: 0, color: currentColor.clone(), radius: SPLAT_RADIUS * 1.5 });
+    });
+    canvas.addEventListener('pointermove', e => {
+      const p = getPointerPos(e);
+      pointer.dx = p.x - lastPointer.x;
+      pointer.dy = p.y - lastPointer.y;
+      pointer.x = p.x; pointer.y = p.y;
+      if (pointer.down) {
+        splats.push({
+          x: p.x, y: p.y,
+          dx: pointer.dx * 4, dy: pointer.dy * 4,
+          color: currentColor.clone(),
+          radius: SPLAT_RADIUS
+        });
+      }
+      lastPointer.x = p.x; lastPointer.y = p.y;
+    });
+    window.addEventListener('pointerup', () => { pointer.down = false; });
+
+    document.querySelectorAll('.swatch').forEach(el => {
+      el.addEventListener('click', () => {
+        document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+        el.classList.add('active');
+        const c = el.dataset.color.split(',').map(Number);
+        currentColor.set(c[0], c[1], c[2]);
+      });
+    });
+
+    const autoBtn = document.getElementById('autoBtn');
+    autoBtn.addEventListener('click', () => {
+      autoPlay = !autoPlay;
+      autoBtn.style.background = autoPlay ? 'rgba(50,50,50,0.85)' : 'rgba(255,255,255,0.6)';
+      autoBtn.style.color = autoPlay ? '#fff' : '#333';
+    });
+    autoBtn.style.background = 'rgba(50,50,50,0.85)';
+    autoBtn.style.color = '#fff';
+
+    function clearFBO(fbo) {
+      renderer.setRenderTarget(fbo);
+      renderer.setClearColor(new THREE.Color(0, 0, 0), 1);
+      renderer.clear(true, true, true);
+      renderer.setRenderTarget(null);
+    }
+
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      clearFBO(densityFBO.read);
+      clearFBO(densityFBO.write);
+      clearFBO(velocityFBO.read);
+      clearFBO(velocityFBO.write);
+      clearFBO(pressureFBO.read);
+      clearFBO(pressureFBO.write);
+    });
+
+    window.addEventListener('resize', () => {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      displayMaterial.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
+    });
+
+    // ----------------------------------------------------------------
+    // 自动墨源
+    // ----------------------------------------------------------------
+    const palette = [
+      new THREE.Vector3(0.50, 0.50, 0.50), // 淡墨
+      new THREE.Vector3(0.95, 0.34, 0.34), // 浅朱
+      new THREE.Vector3(0.28, 0.54, 0.80), // 浅藍
+      new THREE.Vector3(0.28, 0.70, 0.48)  // 浅松
+    ];
+    let autoTimer = 0;
+    let nextAuto = 1.5;
+
+    // 一股墨水的源头与当前颜色
+    let streamColor = palette[1].clone();
+    let streamColorTimer = 0;
+    let streamColorNext = 4.0;
+    let streamInjectTimer = 0;
+    let streamInjectInterval = 0.12;
+
+    function updateAuto(dt) {
+      // 每隔一段时间换一种墨色，模拟不同墨汁交汇
+      streamColorTimer += dt;
+      if (streamColorTimer > streamColorNext) {
+        streamColorTimer = 0;
+        streamColorNext = 1.5 + Math.random() * 1.2;
+        streamColor = palette[Math.floor(Math.random() * palette.length)].clone().multiplyScalar(0.85 + Math.random() * 0.25);
+      }
+
+      // 源头沿一条蜿蜒曲线移动，像毛笔拖出一股墨流
+      streamInjectTimer += dt;
+      if (streamInjectTimer > streamInjectInterval) {
+        streamInjectTimer = 0;
+        streamInjectInterval = 0.06 + Math.random() * 0.06;
+
+        const rawT = (streamColorTimer * 0.10) % 2.0;
+        const pathT = rawT < 1.0 ? rawT : 2.0 - rawT;
+        const sourceX = 0.06 + pathT * 0.78;
+        const sourceY = 0.40 + Math.sin(pathT * 4.2) * 0.22 + Math.cos(pathT * 2.1) * 0.10;
+        const flowDx = 0.65 + Math.cos(pathT * 5.0) * 0.18;
+        const flowDy = 0.18 + Math.sin(pathT * 4.0) * 0.12;
+
+        splats.push({
+          x: sourceX + (Math.random() - 0.5) * 0.005,
+          y: sourceY + (Math.random() - 0.5) * 0.005,
+          dx: flowDx,
+          dy: flowDy,
+          color: streamColor.clone().multiplyScalar(0.50 + Math.random() * 0.15),
+          radius: SPLAT_RADIUS * (0.8 + Math.random() * 0.25)
+        });
+      }
+
+      // 偶尔在墨流路径上加入次生墨点，增强扩散渗透感
+      autoTimer += dt;
+      if (autoTimer > nextAuto) {
+        autoTimer = 0;
+        nextAuto = 0.6 + Math.random() * 0.9;
+        const t = Math.random();
+        splats.push({
+          x: 0.2 + t * 0.55 + (Math.random() - 0.5) * 0.08,
+          y: 0.45 + t * 0.25 + (Math.random() - 0.5) * 0.08,
+          dx: (Math.random() - 0.5) * 0.22,
+          dy: (Math.random() - 0.5) * 0.22,
+          color: streamColor.clone().multiplyScalar(0.55 + Math.random() * 0.25),
+          radius: SPLAT_RADIUS * (1.6 + Math.random() * 0.8)
+        });
+      }
+    }
+
+    // ----------------------------------------------------------------
+    // 模拟步进
+    // ----------------------------------------------------------------
+    function splatVelocity(x, y, dx, dy) {
+      splatMaterial.uniforms.uTarget.value = velocityFBO.read.texture;
+      splatMaterial.uniforms.aspectRatio.value = 1.0;
+      splatMaterial.uniforms.color.value.set(dx, dy, 0.0);
+      splatMaterial.uniforms.point.value.set(x, y);
+      splatMaterial.uniforms.radius.value = SPLAT_RADIUS;
+      blit(splatMaterial, velocityFBO.write);
+      velocityFBO.swap();
+    }
+
+    function splatDensity(x, y, color, radius) {
+      splatMaterial.uniforms.uTarget.value = densityFBO.read.texture;
+      splatMaterial.uniforms.aspectRatio.value = 1.0;
+      splatMaterial.uniforms.color.value.copy(color);
+      splatMaterial.uniforms.point.value.set(x, y);
+      splatMaterial.uniforms.radius.value = radius;
+      blit(splatMaterial, densityFBO.write);
+      densityFBO.swap();
+    }
+
+    let lastTime = performance.now();
+
+    function step() {
+      const now = performance.now();
+      const dt = Math.min((now - lastTime) / 1000, 0.033);
+      lastTime = now;
+
+      if (autoPlay) updateAuto(dt);
+
+      // 注入墨水和速度
+      for (const s of splats) {
+        splatVelocity(s.x, s.y, s.dx, s.dy);
+        splatDensity(s.x, s.y, s.color, s.radius);
+      }
+      splats = [];
+
+      // Curl
+      curlMaterial.uniforms.uVelocity.value = velocityFBO.read.texture;
+      curlMaterial.uniforms.texelSize.value.set(1 / SIM_RES, 1 / SIM_RES);
+      blit(curlMaterial, curlFBO);
+
+      // Vorticity confinement
+      vorticityMaterial.uniforms.uVelocity.value = velocityFBO.read.texture;
+      vorticityMaterial.uniforms.uCurl.value = curlFBO.texture;
+      vorticityMaterial.uniforms.texelSize.value.set(1 / SIM_RES, 1 / SIM_RES);
+      vorticityMaterial.uniforms.dt.value = dt;
+      blit(vorticityMaterial, velocityFBO.write);
+      velocityFBO.swap();
+
+      // 全局微弱驱动力：模拟纸张倾斜与毛细牵引，使墨流持续向右下蔓延
+      forceMaterial.uniforms.uVelocity.value = velocityFBO.read.texture;
+      forceMaterial.uniforms.time.value = performance.now() * 0.001;
+      forceMaterial.uniforms.dt.value = dt;
+      blit(forceMaterial, velocityFBO.write);
+      velocityFBO.swap();
+
+      // Divergence
+      divergenceMaterial.uniforms.uVelocity.value = velocityFBO.read.texture;
+      divergenceMaterial.uniforms.texelSize.value.set(1 / SIM_RES, 1 / SIM_RES);
+      blit(divergenceMaterial, divergenceFBO);
+
+      // Pressure
+      pressureMaterial.uniforms.uDivergence.value = divergenceFBO.texture;
+      pressureMaterial.uniforms.texelSize.value.set(1 / SIM_RES, 1 / SIM_RES);
+      for (let i = 0; i < PRESSURE_ITERATIONS; i++) {
+        pressureMaterial.uniforms.uPressure.value = pressureFBO.read.texture;
+        blit(pressureMaterial, pressureFBO.write);
+        pressureFBO.swap();
+      }
+
+      // Gradient subtract
+      gradientSubtractMaterial.uniforms.uPressure.value = pressureFBO.read.texture;
+      gradientSubtractMaterial.uniforms.uVelocity.value = velocityFBO.read.texture;
+      gradientSubtractMaterial.uniforms.texelSize.value.set(1 / SIM_RES, 1 / SIM_RES);
+      blit(gradientSubtractMaterial, velocityFBO.write);
+      velocityFBO.swap();
+
+      // Advect velocity
+      advectMaterial.uniforms.uVelocity.value = velocityFBO.read.texture;
+      advectMaterial.uniforms.uSource.value = velocityFBO.read.texture;
+      advectMaterial.uniforms.texelSize.value.set(1 / SIM_RES, 1 / SIM_RES);
+      advectMaterial.uniforms.dt.value = dt;
+      advectMaterial.uniforms.dissipation.value = VELOCITY_DISSIPATION;
+      blit(advectMaterial, velocityFBO.write);
+      velocityFBO.swap();
+
+      // Advect density
+      advectMaterial.uniforms.uVelocity.value = velocityFBO.read.texture;
+      advectMaterial.uniforms.uSource.value = densityFBO.read.texture;
+      advectMaterial.uniforms.texelSize.value.set(1 / DYE_RES, 1 / DYE_RES);
+      advectMaterial.uniforms.dt.value = dt;
+      advectMaterial.uniforms.dissipation.value = DENSITY_DISSIPATION;
+      blit(advectMaterial, densityFBO.write);
+      densityFBO.swap();
+
+      // Display
+      displayMaterial.uniforms.uDensity.value = densityFBO.read.texture;
+      mesh.material = displayMaterial;
+      renderer.setRenderTarget(null);
+      renderer.render(scene, camera);
+
+      requestAnimationFrame(step);
+    }
+
+    // 初始在源头预注几滴浓墨，形成一股蓄势待发的墨流
+    for (let i = 0; i < 5; i++) {
+      const t = i / 4.0;
+      splats.push({
+        x: 0.12 + t * 0.03,
+        y: 0.48 + (Math.random() - 0.5) * 0.015,
+        dx: 1.0 + t * 0.3,
+        dy: 0.2 + (Math.random() - 0.5) * 0.1,
+        color: palette[0].clone().multiplyScalar(0.65 - t * 0.15),
+        radius: SPLAT_RADIUS * (1.4 - t * 0.2)
+      });
+    }
+
+    step();
+  </script>
+</body>
+</html>

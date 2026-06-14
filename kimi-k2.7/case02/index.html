@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relativity Sandbox</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <canvas id="sim-canvas"></canvas>
+
+    <aside id="ui-panel">
+      <header>
+        <h1>Relativity Sandbox</h1>
+        <p class="subtitle">A toy 3D n-body gravity + curvature playground</p>
+      </header>
+
+      <section class="panel-section">
+        <div class="button-row">
+          <button id="btn-pause">Pause</button>
+          <button id="btn-reset">Reset</button>
+        </div>
+        <div class="stats">
+          <span id="stat-bodies">Bodies: 0</span>
+          <span id="stat-time">t: 0.00</span>
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <h2>Add Body</h2>
+        <form id="add-form" class="compact-form">
+          <label>Mass
+            <input type="number" id="in-mass" value="5" step="0.1" min="0.1">
+          </label>
+          <div class="row">
+            <label>X<input type="number" id="in-px" value="0" step="1"></label>
+            <label>Y<input type="number" id="in-py" value="0" step="1"></label>
+            <label>Z<input type="number" id="in-pz" value="0" step="1"></label>
+          </div>
+          <div class="row">
+            <label>Vx<input type="number" id="in-vx" value="0" step="0.1"></label>
+            <label>Vy<input type="number" id="in-vy" value="0" step="0.1"></label>
+            <label>Vz<input type="number" id="in-vz" value="0" step="0.1"></label>
+          </div>
+          <button type="submit">Add Body</button>
+          <button type="button" id="btn-random">Add Random</button>
+        </form>
+      </section>
+
+      <section class="panel-section">
+        <h2>Body List</h2>
+        <ul id="body-list" class="body-list"></ul>
+      </section>
+
+      <section class="panel-section">
+        <h2>Visualization</h2>
+        <label class="toggle">
+          <input type="checkbox" id="tog-curvature" checked>
+          Curvature grid
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="tog-trails" checked>
+          Trails
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="tog-vectors">
+          Velocity vectors
+        </label>
+      </section>
+
+      <section class="panel-section">
+        <h2>Parameters</h2>
+        <label class="slider">
+          Gravity G
+          <input type="range" id="slider-g" min="0" max="5" step="0.05" value="1">
+          <span id="val-g">1.00</span>
+        </label>
+        <label class="slider">
+          Sim speed
+          <input type="range" id="slider-speed" min="0" max="3" step="0.05" value="1">
+          <span id="val-speed">1.00</span>
+        </label>
+        <label class="slider">
+          Trail length
+          <input type="range" id="slider-trail" min="0" max="300" step="10" value="100">
+          <span id="val-trail">100</span>
+        </label>
+        <label class="slider">
+          Softening ε
+          <input type="range" id="slider-soft" min="0.1" max="10" step="0.1" value="2">
+          <span id="val-soft">2.00</span>
+        </label>
+      </section>
+    </aside>
+  </div>
+
+  <!-- Three.js as global scripts so index.html works when opened directly (file://) -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

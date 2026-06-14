@@ -1,0 +1,260 @@
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #05070a;
+  color: #e8eef5;
+}
+
+#app {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+#sim-canvas {
+  flex: 1 1 auto;
+  display: block;
+  outline: none;
+  min-width: 0;
+}
+
+#ui-panel {
+  width: 320px;
+  flex: 0 0 320px;
+  height: 100%;
+  overflow-y: auto;
+  background: rgba(10, 15, 22, 0.95);
+  border-left: 1px solid #1f2937;
+  padding: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: #374151 #0b0f17;
+}
+
+#ui-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+#ui-panel::-webkit-scrollbar-track {
+  background: #0b0f17;
+}
+
+#ui-panel::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 4px;
+}
+
+header h1 {
+  margin: 0 0 4px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #93c5fd;
+}
+
+.subtitle {
+  margin: 0 0 12px;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.panel-section {
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #1f2937;
+}
+
+.panel-section:last-child {
+  border-bottom: none;
+}
+
+.panel-section h2 {
+  margin: 0 0 10px;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #cbd5e1;
+}
+
+.button-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+button {
+  flex: 1 1 auto;
+  padding: 8px 12px;
+  border: 1px solid #2563eb;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #e0f2fe;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+button:hover {
+  background: #1e3a8a;
+  border-color: #60a5fa;
+}
+
+button[type="submit"] {
+  width: 100%;
+  margin-top: 8px;
+}
+
+button[type="button"]#btn-random {
+  width: 100%;
+  margin-top: 6px;
+  border-color: #475569;
+  background: #0b0f17;
+}
+
+.stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.compact-form label {
+  display: block;
+  font-size: 0.75rem;
+  color: #cbd5e1;
+  margin-bottom: 6px;
+}
+
+.compact-form input[type="number"] {
+  width: 100%;
+  margin-top: 4px;
+  padding: 5px 7px;
+  background: #0b0f17;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  color: #e8eef5;
+  font-size: 0.8rem;
+}
+
+.compact-form .row {
+  display: flex;
+  gap: 6px;
+}
+
+.compact-form .row label {
+  flex: 1 1 33%;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.toggle input {
+  accent-color: #2563eb;
+}
+
+.slider {
+  display: grid;
+  grid-template-columns: 1fr 45px;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.8rem;
+  margin-bottom: 10px;
+}
+
+.slider input[type="range"] {
+  grid-column: 1 / 2;
+  width: 100%;
+}
+
+.slider span {
+  grid-column: 2 / 3;
+  text-align: right;
+  color: #93c5fd;
+  font-variant-numeric: tabular-nums;
+}
+
+.body-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.body-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  background: #0b0f17;
+  border: 1px solid #1f2937;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+
+.body-item .info {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.body-item .name {
+  color: #e0f2fe;
+  font-weight: 500;
+}
+
+.body-item .coords {
+  color: #94a3b8;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.body-item .swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.body-item button {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  font-size: 0.7rem;
+  border-color: #7f1d1d;
+  color: #fecaca;
+  background: #1a0505;
+}
+
+.body-item button:hover {
+  background: #450a0a;
+}
+
+@media (max-width: 760px) {
+  #app {
+    flex-direction: column;
+  }
+
+  #ui-panel {
+    width: 100%;
+    flex: 0 0 auto;
+    height: 40%;
+    border-left: none;
+    border-top: 1px solid #1f2937;
+  }
+}
