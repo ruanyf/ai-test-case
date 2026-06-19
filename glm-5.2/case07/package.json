@@ -1,0 +1,21 @@
+{
+  "name": "wordcloud-cli",
+  "version": "1.0.0",
+  "description": "Generate a word cloud PNG from a text file based on word frequency.",
+  "bin": {
+    "wordcloud": "./index.js"
+  },
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.65",
+    "d3-cloud": "^1.2.7",
+    "minimist": "^1.2.8"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "license": "MIT"
+}
