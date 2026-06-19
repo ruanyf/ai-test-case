@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Relativity Sandbox — N-Body Gravity in 3D</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Three.js loaded as ES modules via CDN import map (no build step) -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <!-- 3D canvas mounts here -->
+  <div id="app"></div>
+
+  <!-- Top-left: title + scene controls -->
+  <div id="panel-left" class="panel">
+    <div class="panel-title">Relativity Sandbox</div>
+    <div class="hint">Drag = orbit · Right-drag = pan · Scroll = zoom</div>
+
+    <div class="btn-row">
+      <button id="btn-pause">⏸ Pause</button>
+      <button id="btn-reset">⟲ Reset</button>
+    </div>
+
+    <div class="section-label">Overlays</div>
+    <div class="toggle-row">
+      <label><input type="checkbox" id="tog-curvature" checked /> Curvature</label>
+      <label><input type="checkbox" id="tog-trails" checked /> Trails</label>
+      <label><input type="checkbox" id="tog-vectors" /> Vectors</label>
+    </div>
+
+    <div class="section-label">Parameters</div>
+    <div class="slider">
+      <label>Gravity <span id="val-gravity">1.0</span></label>
+      <input type="range" id="sl-gravity" min="0" max="3" step="0.05" value="1" />
+    </div>
+    <div class="slider">
+      <label>Sim speed <span id="val-speed">1.0</span></label>
+      <input type="range" id="sl-speed" min="0" max="3" step="0.05" value="1" />
+    </div>
+    <div class="slider">
+      <label>Trail length <span id="val-trail">300</span></label>
+      <input type="range" id="sl-trail" min="10" max="1000" step="10" value="300" />
+    </div>
+
+    <div class="stats" id="stats">
+      <div>bodies: <span id="stat-bodies">0</span></div>
+      <div>merges: <span id="stat-merges">0</span></div>
+      <div>fps: <span id="stat-fps">0</span></div>
+    </div>
+  </div>
+
+  <!-- Top-right: add body + body list -->
+  <div id="panel-right" class="panel">
+    <div class="panel-title">Add Body</div>
+    <div class="form-grid">
+      <label>mass<input type="number" id="in-mass" value="100" step="any" /></label>
+      <label>color<input type="color" id="in-color" value="#ffcc55" /></label>
+
+      <label>x<input type="number" id="in-px" value="0" step="any" /></label>
+      <label>y<input type="number" id="in-py" value="0" step="any" /></label>
+      <label>z<input type="number" id="in-pz" value="0" step="any" /></label>
+
+      <label>vx<input type="number" id="in-vx" value="0" step="any" /></label>
+      <label>vy<input type="number" id="in-vy" value="0" step="any" /></label>
+      <label>vz<input type="number" id="in-vz" value="0" step="any" /></label>
+    </div>
+    <div class="btn-row">
+      <button id="btn-add">＋ Add body</button>
+      <button id="btn-random" title="Give a random orbit around the heaviest body">↻ Orbit</button>
+    </div>
+
+    <div class="section-label">Bodies</div>
+    <div id="body-list" class="body-list"></div>
+  </div>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>

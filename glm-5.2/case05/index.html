@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Maxwell's Demon</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #07090f;
+    --panel: #0d1119;
+    --panel-2: #121826;
+    --accent: #4fd1ff;
+    --hot: #ff4d4d;
+    --cold: #4d9bff;
+    --text: #d6deea;
+    --muted: #7a8699;
+    --border: #1d2636;
+    --violation: #ff5a6e;
+    --ok: #46d39a;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: radial-gradient(1200px 800px at 50% -10%, #0f1626 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+  }
+
+  header {
+    text-align: center;
+    padding: 22px 16px 6px;
+  }
+  header h1 {
+    margin: 0;
+    font-size: clamp(22px, 4vw, 34px);
+    letter-spacing: 0.5px;
+    background: linear-gradient(90deg, var(--cold), var(--accent), var(--hot));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-weight: 800;
+  }
+  header p {
+    margin: 6px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 18px;
+    padding: 16px clamp(12px, 4vw, 40px) 40px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  @media (max-width: 920px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  .stage {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.02);
+  }
+
+  canvas#sim {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 10px;
+    background: #05070c;
+    box-shadow: inset 0 0 60px rgba(0,0,0,0.7);
+  }
+
+  .controls {
+    margin-top: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+  .btn {
+    appearance: none;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text);
+    padding: 9px 16px;
+    border-radius: 9px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform .05s ease, background .15s ease, border-color .15s ease;
+    user-select: none;
+  }
+  .btn:hover { background: #18202f; border-color: #2a3550; }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary { background: linear-gradient(180deg, #1b6fb0, #155f9c); border-color: #2a86d6; }
+  .btn.primary:hover { background: linear-gradient(180deg, #2079bd, #176aad); }
+  .btn.toggle.on { background: linear-gradient(180deg, #6b2bd6, #5321b0); border-color: #8b4be6; }
+
+  .slider-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 140px;
+    height: 5px;
+    border-radius: 5px;
+    background: #243049;
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--accent);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 16px; height: 16px; border: none;
+    border-radius: 50%; background: var(--accent); cursor: pointer;
+  }
+
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+  }
+  .card h2 {
+    margin: 0 0 12px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--muted);
+  }
+
+  .readouts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .stat {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .stat .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+  }
+  .stat .value {
+    font-size: 22px;
+    font-weight: 800;
+    margin-top: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat.cold .value { color: var(--cold); }
+  .stat.hot .value { color: var(--hot); }
+  .stat .sub { font-size: 11px; color: var(--muted); }
+
+  .full { grid-column: 1 / -1; }
+
+  .entropy-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 4px;
+  }
+  .badge {
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 9px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+  }
+  .badge.violation { color: var(--violation); border-color: rgba(255,90,110,0.5); background: rgba(255,90,110,0.08); }
+  .badge.ok { color: var(--ok); border-color: rgba(70,211,154,0.5); background: rgba(70,211,154,0.08); }
+
+  .chart-wrap {
+    position: relative;
+    height: 220px;
+  }
+
+  .legend {
+    display: flex;
+    gap: 14px;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 11px;
+    padding: 0 16px 30px;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Maxwell's Demon</h1>
+    <p>A thought experiment — can sorting fast &amp; slow particles break the Second Law?</p>
+  </header>
+
+  <div class="layout">
+    <!-- Simulation -->
+    <div class="stage">
+      <canvas id="sim" width="780" height="460"></canvas>
+      <div class="controls">
+        <button id="playBtn" class="btn primary">▶ Start</button>
+        <button id="resetBtn" class="btn">↺ Reset</button>
+        <button id="demonBtn" class="btn toggle on">👹 Demon: ON</button>
+        <div class="slider-group">
+          <span>Speed</span>
+          <input id="speed" type="range" min="0.2" max="2.5" step="0.1" value="1" />
+          <span id="speedVal" style="width:34px;text-align:right">1.0×</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="card">
+        <h2>Live Readings</h2>
+        <div class="readouts">
+          <div class="stat cold">
+            <div class="label">Left Chamber</div>
+            <div class="value" id="tL">—</div>
+            <div class="sub"><span id="nL">0</span> particles</div>
+          </div>
+          <div class="stat hot">
+            <div class="label">Right Chamber</div>
+            <div class="value" id="tR">—</div>
+            <div class="sub"><span id="nR">0</span> particles</div>
+          </div>
+          <div class="stat full">
+            <div class="label">System Entropy</div>
+            <div class="entropy-row">
+              <div class="value" id="entropy" style="font-size:20px">—</div>
+              <span id="entropyBadge" class="badge ok">equilibrium</span>
+            </div>
+            <div class="sub" id="entropySub">ΔS since start</div>
+          </div>
+        </div>
+        <div class="legend">
+          <span><span class="swatch" style="background:#4d9bff"></span>cold / slow</span>
+          <span><span class="swatch" style="background:#ff4d4d"></span>hot / fast</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Temperature Divergence</h2>
+        <div class="chart-wrap"><canvas id="chart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Toggle the demon off to watch the chambers relax back to thermal equilibrium.
+    With the demon on, fast particles migrate right (heating up) and slow ones left (cooling down) —
+    a textbook "violation" of the Second Law that the demon's own information cost ultimately pays for.
+  </footer>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- Setup ----------
+  const canvas = document.getElementById("sim");
+  const ctx = canvas.getContext("2d");
+  let W = canvas.width, H = canvas.height;
+
+  // Responsive scaling: keep internal resolution, fit container width
+  function fitCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const cssW = rect.width;
+    const cssH = Math.round(cssW * (460 / 780));
+    canvas.style.height = cssH + "px";
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    W = cssW;
+    H = cssH;
+  }
+
+  // ---------- Simulation state ----------
+  const PARTICLE_COUNT = 140;
+  const PR = 4.2;            // particle radius
+  const WALL_THICK = 6;
+  const GATE_HALF = 26;      // half-height of the gate opening
+
+  let particles = [];
+  let running = false;
+  let demonOn = true;
+  let speedMul = 1;
+  let gateOpenAnim = 0;      // 0..1 visual open amount
+  let initialEntropy = null;
+  let simTime = 0;
+
+  // walls: chamber is [margin, midX - wall/2] and [midX + wall/2, W - margin]
+  function midX() { return W / 2; }
+  function gateTop() { return H / 2 - GATE_HALF; }
+  function gateBot() { return H / 2 + GATE_HALF; }
+
+  // speed -> color (cold blue -> hot red), via HSL
+  let vMin = 0, vMax = 1;    // dynamic range for color normalization
+  function colorForSpeed(v) {
+    const t = Math.max(0, Math.min(1, (v - vMin) / (vMax - vMin || 1)));
+    // blue(210) -> cyan(190) -> yellow(50) -> red(0)
+    const hue = 220 - 220 * t;
+    const sat = 90;
+    const light = 50 + 12 * t;
+    return `hsl(${hue}, ${sat}%, ${light}%)`;
+  }
+
+  function rand(a, b) { return a + Math.random() * (b - a); }
+
+  function createParticles() {
+    particles = [];
+    const margin = 14;
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      const left = i % 2 === 0;
+      const xMin = left ? margin + PR : midX() + WALL_THICK / 2 + PR;
+      const xMax = left ? midX() - WALL_THICK / 2 - PR : W - margin - PR;
+      const angle = rand(0, Math.PI * 2);
+      const sp = rand(0.6, 2.4);
+      particles.push({
+        x: rand(xMin, xMax),
+        y: rand(margin + PR, H - margin - PR),
+        vx: Math.cos(angle) * sp,
+        vy: Math.sin(angle) * sp,
+        r: PR,
+        left: left,
+      });
+    }
+  }
+
+  // ---------- Physics ----------
+  function step(dt) {
+    const margin = 14;
+    const mx = midX();
+    const wHalf = WALL_THICK / 2;
+    const gTop = gateTop(), gBot = gateBot();
+
+    // threshold for "fast"/"slow" — mean speed
+    let sum = 0;
+    for (const p of particles) sum += Math.hypot(p.vx, p.vy);
+    const meanSpeed = sum / particles.length;
+
+    // integrate motion
+    for (const p of particles) {
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+
+      // top / bottom walls
+      if (p.y - p.r < margin) { p.y = margin + p.r; p.vy = Math.abs(p.vy); }
+      else if (p.y + p.r > H - margin) { p.y = H - margin - p.r; p.vy = -Math.abs(p.vy); }
+
+      // left / right outer walls
+      if (p.x - p.r < margin) { p.x = margin + p.r; p.vx = Math.abs(p.vx); }
+      else if (p.x + p.r > W - margin) { p.x = W - margin - p.r; p.vx = -Math.abs(p.vx); }
+
+      // middle wall with gate + demon logic
+      const inGateY = (p.y > gTop && p.y < gBot);
+      if (p.left) {
+        // approaching wall from the left
+        if (p.x + p.r > mx - wHalf) {
+          if (inGateY && canPass(p, meanSpeed)) {
+            // allow to cross; once center passes mx it belongs to right
+            if (p.x > mx) p.left = false;
+          } else {
+            p.x = mx - wHalf - p.r;
+            p.vx = -Math.abs(p.vx);
+          }
+        }
+      } else {
+        // approaching wall from the right
+        if (p.x - p.r < mx + wHalf) {
+          if (inGateY && canPass(p, meanSpeed)) {
+            if (p.x < mx) p.left = true;
+          } else {
+            p.x = mx + wHalf + p.r;
+            p.vx = Math.abs(p.vx);
+          }
+        }
+      }
+    }
+
+    // particle-particle collisions (only consider neighbors; simple O(n^2) fine at 140)
+    resolveCollisions();
+
+    simTime += dt;
+  }
+
+  // Demon rule:
+  //  - moving right (vx>0) and FAST  -> may pass to right chamber
+  //  - moving left  (vx<0) and SLOW  -> may pass to left chamber
+  //  - otherwise reflect (demon blocks)
+  function canPass(p, meanSpeed) {
+    if (!demonOn) return true;            // gate fully open -> equilibrium
+    const sp = Math.hypot(p.vx, p.vy);
+    if (p.vx > 0) return sp >= meanSpeed; // fast heading right -> through
+    if (p.vx < 0) return sp <= meanSpeed; // slow heading left  -> through
+    return true; // purely vertical; let it pass
+  }
+
+  function resolveCollisions() {
+    const n = particles.length;
+    for (let i = 0; i < n; i++) {
+      const a = particles[i];
+      for (let j = i + 1; j < n; j++) {
+        const b = particles[j];
+        // only collide if in same chamber (no cross-wall overlaps expected normally)
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const dist2 = dx * dx + dy * dy;
+        const rr = a.r + b.r;
+        if (dist2 < rr * rr && dist2 > 1e-6) {
+          const dist = Math.sqrt(dist2);
+          const nx = dx / dist, ny = dy / dist;
+          // separate
+          const overlap = rr - dist;
+          a.x -= nx * overlap * 0.5;
+          a.y -= ny * overlap * 0.5;
+          b.x += nx * overlap * 0.5;
+          b.y += ny * overlap * 0.5;
+          // elastic response along normal (equal mass)
+          const dvx = b.vx - a.vx, dvy = b.vy - a.vy;
+          const vn = dvx * nx + dvy * ny;
+          if (vn < 0) {
+            a.vx += vn * nx;
+            a.vy += vn * ny;
+            b.vx -= vn * nx;
+            b.vy -= vn * ny;
+          }
+        }
+      }
+    }
+  }
+
+  // ---------- Stats ----------
+  function stats() {
+    let nL = 0, nR = 0, keL = 0, keR = 0;
+    let speeds = [];
+    for (const p of particles) {
+      const sp = Math.hypot(p.vx, p.vy);
+      speeds.push(sp);
+      if (p.left) { nL++; keL += sp * sp; }
+      else { nR++; keR += sp * sp; }
+    }
+    const TL = nL ? keL / nL : 0;     // temperature ~ mean kinetic energy (v^2)
+    const TR = nR ? keR / nR : 0;
+    // entropy proxy: S = N_L ln(T_L) + N_R ln(T_R)  (+const). When sorted -> lower.
+    const safe = (t) => Math.max(t, 1e-3);
+    const S = nL * Math.log(safe(TL)) + nR * Math.log(safe(TR));
+    return { nL, nR, TL, TR, S, speeds };
+  }
+
+  // ---------- Render ----------
+  function draw() {
+    // dynamic color range from current speeds
+    const st = stats();
+    vMin = Math.min(...st.speeds);
+    vMax = Math.max(...st.speeds);
+    if (vMax - vMin < 0.2) vMax = vMin + 0.2;
+
+    // background
+    ctx.fillStyle = "#05070c";
+    ctx.fillRect(0, 0, W, H);
+
+    // chamber tints
+    const gradL = ctx.createLinearGradient(0, 0, 0, H);
+    gradL.addColorStop(0, "rgba(40,80,160,0.05)");
+    gradL.addColorStop(1, "rgba(40,80,160,0.10)");
+    ctx.fillStyle = gradL;
+    ctx.fillRect(0, 0, midX(), H);
+
+    const gradR = ctx.createLinearGradient(0, 0, 0, H);
+    gradR.addColorStop(0, "rgba(160,40,40,0.05)");
+    gradR.addColorStop(1, "rgba(160,40,40,0.10)");
+    ctx.fillStyle = gradR;
+    ctx.fillRect(midX(), 0, midX(), H);
+
+    // middle wall + gate
+    drawWall();
+
+    // particles (glow)
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (const p of particles) {
+      const sp = Math.hypot(p.vx, p.vy);
+      const col = colorForSpeed(sp);
+      ctx.beginPath();
+      ctx.fillStyle = col;
+      ctx.shadowColor = col;
+      ctx.shadowBlur = 12;
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // demon
+    drawDemon();
+  }
+
+  function drawWall() {
+    const mx = midX();
+    const wHalf = WALL_THICK / 2;
+    const gTop = gateTop(), gBot = gateBot();
+
+    ctx.fillStyle = "#222d44";
+    // top segment
+    ctx.fillRect(mx - wHalf, 0, WALL_THICK, gTop);
+    // bottom segment
+    ctx.fillRect(mx - wHalf, gBot, WALL_THICK, H - gBot);
+
+    // gate opening visualization
+    const open = demonOn ? gateOpenAnim : 1;
+    ctx.save();
+    ctx.strokeStyle = `rgba(79,209,255,${0.15 + 0.5 * open})`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(mx, gTop);
+    ctx.lineTo(mx, gBot);
+    ctx.stroke();
+    ctx.restore();
+
+    // gate frame markers
+    ctx.fillStyle = "#3a4866";
+    ctx.fillRect(mx - wHalf - 2, gTop - 3, WALL_THICK + 4, 3);
+    ctx.fillRect(mx - wHalf - 2, gBot, WALL_THICK + 4, 3);
+  }
+
+  function drawDemon() {
+    const mx = midX();
+    const cy = H / 2;
+    const t = simTime * 0.004;
+    // animated "eye"/gate spirit
+    ctx.save();
+    ctx.translate(mx, cy);
+
+    // pulsing aura
+    const aura = 10 + 4 * Math.sin(t * 6);
+    const auraCol = demonOn ? "rgba(170,90,255,0.25)" : "rgba(120,130,150,0.12)";
+    const g = ctx.createRadialGradient(0, 0, 2, 0, 0, 22 + aura);
+    g.addColorStop(0, auraCol);
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, 0, 22 + aura, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (demonOn) {
+      // demon body (little sprite)
+      ctx.fillStyle = "#b46cff";
+      ctx.shadowColor = "#b46cff";
+      ctx.shadowBlur = 14;
+      // horns
+      ctx.beginPath();
+      ctx.moveTo(-9, -7);
+      ctx.lineTo(-5, -16);
+      ctx.lineTo(-2, -8);
+      ctx.moveTo(9, -7);
+      ctx.lineTo(5, -16);
+      ctx.lineTo(2, -8);
+      ctx.fill();
+      // head
+      ctx.beginPath();
+      ctx.arc(0, -2, 9, 0, Math.PI * 2);
+      ctx.fill();
+      // eyes
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "#0a0a12";
+      ctx.beginPath(); ctx.arc(-3.2, -3, 1.8, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(3.2, -3, 1.8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#7df9ff";
+      ctx.beginPath(); ctx.arc(-3.2, -3, 0.7, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(3.2, -3, 0.7, 0, Math.PI * 2); ctx.fill();
+      // grin
+      ctx.strokeStyle = "#0a0a12";
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.arc(0, 0, 4, 0.1 * Math.PI, 0.9 * Math.PI);
+      ctx.stroke();
+    } else {
+      // sleeping demon (faint z's)
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "rgba(150,160,180,0.5)";
+      ctx.font = "12px sans-serif";
+      ctx.fillText("z", 8, -10);
+      ctx.fillText("Z", 14, -16);
+    }
+    ctx.restore();
+  }
+
+  // ---------- UI wiring ----------
+  const playBtn = document.getElementById("playBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const demonBtn = document.getElementById("demonBtn");
+  const speedSlider = document.getElementById("speed");
+  const speedVal = document.getElementById("speedVal");
+
+  const tLEl = document.getElementById("tL");
+  const tREl = document.getElementById("tR");
+  const nLEl = document.getElementById("nL");
+  const nREl = document.getElementById("nR");
+  const entropyEl = document.getElementById("entropy");
+  const entropyBadge = document.getElementById("entropyBadge");
+  const entropySub = document.getElementById("entropySub");
+
+  playBtn.addEventListener("click", () => {
+    running = !running;
+    playBtn.textContent = running ? "⏸ Pause" : "▶ Start";
+    playBtn.classList.toggle("primary", !running);
+    if (running) lastT = performance.now();
+  });
+
+  resetBtn.addEventListener("click", () => {
+    createParticles();
+    simTime = 0;
+    initialEntropy = null;
+    chartReset();
+  });
+
+  demonBtn.addEventListener("click", () => {
+    demonOn = !demonOn;
+    demonBtn.textContent = demonOn ? "👹 Demon: ON" : "👻 Demon: OFF";
+    demonBtn.classList.toggle("on", demonOn);
+  });
+
+  speedSlider.addEventListener("input", () => {
+    speedMul = parseFloat(speedSlider.value);
+    speedVal.textContent = speedMul.toFixed(1) + "×";
+  });
+
+  // ---------- Chart ----------
+  const chartCtx = document.getElementById("chart").getContext("2d");
+  const chart = new Chart(chartCtx, {
+    type: "line",
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: "Left (cold)",
+          data: [],
+          borderColor: "#4d9bff",
+          backgroundColor: "rgba(77,155,255,0.12)",
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.3,
+          fill: false,
+        },
+        {
+          label: "Right (hot)",
+          data: [],
+          borderColor: "#ff4d4d",
+          backgroundColor: "rgba(255,77,77,0.12)",
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.3,
+          fill: false,
+        },
+      ],
+    },
+    options: {
+      animation: false,
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: "#9aa6bd", boxWidth: 10, font: { size: 11 } } },
+        tooltip: { enabled: false },
+      },
+      scales: {
+        x: {
+          title: { display: true, text: "time", color: "#5a6678", font: { size: 10 } },
+          ticks: { color: "#5a6678", maxTicksLimit: 6, font: { size: 10 } },
+          grid: { color: "rgba(255,255,255,0.04)" },
+        },
+        y: {
+          title: { display: true, text: "temperature", color: "#5a6678", font: { size: 10 } },
+          ticks: { color: "#5a6678", font: { size: 10 } },
+          grid: { color: "rgba(255,255,255,0.04)" },
+          beginAtZero: true,
+        },
+      },
+    },
+  });
+
+  function chartPush(t, TL, TR) {
+    chart.data.labels.push(t.toFixed(1));
+    chart.data.datasets[0].data.push(TL);
+    chart.data.datasets[1].data.push(TR);
+    // keep ~120 points
+    if (chart.data.labels.length > 120) {
+      chart.data.labels.shift();
+      chart.data.datasets[0].data.shift();
+      chart.data.datasets[1].data.shift();
+    }
+    chart.update("none");
+  }
+  function chartReset() {
+    chart.data.labels = [];
+    chart.data.datasets[0].data = [];
+    chart.data.datasets[1].data = [];
+    chart.update("none");
+  }
+
+  // ---------- Main loop ----------
+  let lastT = performance.now();
+  let chartAccum = 0;
+
+  function updateReadouts() {
+    const s = stats();
+    // display temperature scaled up a bit for readability
+    const dispL = (s.TL * 100).toFixed(0);
+    const dispR = (s.TR * 100).toFixed(0);
+    tLEl.textContent = dispL;
+    tREl.textContent = dispR;
+    nLEl.textContent = s.nL;
+    nREl.textContent = s.nR;
+
+    if (initialEntropy === null) initialEntropy = s.S;
+    const dS = s.S - initialEntropy;
+    entropyEl.textContent = (dS >= 0 ? "+" : "") + dS.toFixed(2);
+
+    const sorted = demonOn && (s.TR - s.TL) > 0.15;
+    if (demonOn && dS < -0.3) {
+      entropyBadge.textContent = "2nd law violation";
+      entropyBadge.className = "badge violation";
+    } else if (!demonOn) {
+      entropyBadge.textContent = "equilibrium";
+      entropyBadge.className = "badge ok";
+    } else {
+      entropyBadge.textContent = "sorting…";
+      entropyBadge.className = "badge ok";
+    }
+    entropySub.textContent = sorted
+      ? "Fast→right, slow→left (ΔS negative)"
+      : "ΔS since start";
+  }
+
+  function loop(now) {
+    const realDt = Math.min(33, now - lastT); // ms, clamp
+    lastT = now;
+
+    if (running) {
+      // fixed sub-steps for stability
+      const sub = 2;
+      const dt = (realDt / 16.6667) * speedMul / sub;
+      for (let i = 0; i < sub; i++) step(dt);
+
+      // animate gate open visual
+      gateOpenAnim += ((1) - gateOpenAnim) * 0.1;
+
+      chartAccum += realDt;
+      if (chartAccum > 250) {
+        chartAccum = 0;
+        const s = stats();
+        chartPush(simTime * 0.0166, s.TL * 100, s.TR * 100);
+      }
+    } else {
+      gateOpenAnim += ((0.25) - gateOpenAnim) * 0.1;
+    }
+
+    updateReadouts();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- Init ----------
+  function init() {
+    fitCanvas();
+    createParticles();
+    updateReadouts();
+    requestAnimationFrame(loop);
+  }
+
+  window.addEventListener("resize", () => {
+    fitCanvas();
+    // keep particles inside new bounds
+    const margin = 14;
+    for (const p of particles) {
+      p.x = Math.max(margin + p.r, Math.min(W - margin - p.r, p.x));
+      p.y = Math.max(margin + p.r, Math.min(H - margin - p.r, p.y));
+    }
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>

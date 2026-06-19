@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Angry Blocks — Slingshot Physics</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: #2b2f38;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+    user-select: none;
+  }
+  #wrap {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    cursor: crosshair;
+  }
+  #hud {
+    position: absolute;
+    top: 14px;
+    left: 16px;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,.6);
+    pointer-events: none;
+    line-height: 1.5;
+  }
+  #hud .big { font-size: 26px; font-weight: 800; }
+  #hud .small { font-size: 14px; opacity: .85; }
+  #btns {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    display: flex;
+    gap: 8px;
+  }
+  button {
+    pointer-events: auto;
+    background: #e85d3a;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 3px 0 #b9421f;
+    transition: transform .05s;
+  }
+  button:active { transform: translateY(2px); box-shadow: 0 1px 0 #b9421f; }
+  #msg {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 40px;
+    font-weight: 900;
+    text-shadow: 0 2px 6px rgba(0,0,0,.7);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .3s;
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+  <div id="hud">
+    <div class="big">Score: <span id="score">0</span></div>
+    <div class="small">Birds left: <span id="birds">3</span> &nbsp;·&nbsp; Drag the bird back &amp; release to launch</div>
+  </div>
+  <div id="btns">
+    <button id="resetBtn">Reset Level</button>
+  </div>
+  <div id="msg"></div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const scoreEl = document.getElementById("score");
+  const birdsEl = document.getElementById("birds");
+  const msgEl = document.getElementById("msg");
+  const resetBtn = document.getElementById("resetBtn");
+
+  // --- World constants ---
+  const GRAVITY = 1400;          // px/s^2
+  const AIR = 0.12;              // velocity damping per second (light)
+  const MAX_BIRDS = 3;
+  const MAX_PULL = 130;          // max slingshot pull distance (px)
+  const LAUNCH_SCALE = 9;        // pull px -> launch speed multiplier
+  const GROUND_RATIO = 0.86;     // ground sits at 86% of height
+  const RESTITUTION = 0.32;      // block bounce
+  const FRICTION = 0.78;         // ground friction factor on rest
+
+  let W = 0, H = 0, GROUND_Y = 0;
+  let DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    GROUND_Y = Math.floor(H * GROUND_RATIO);
+    slingshot.x = Math.max(120, W * 0.16);
+    slingshot.y = GROUND_Y;
+    resetLevel();
+  }
+
+  // --- Slingshot ---
+  const slingshot = { x: 160, y: 0, forkW: 46, forkH: 70 };
+
+  // --- Entities ---
+  let bird = null;       // active flying bird (or null)
+  let nextBirds = 0;     // birds remaining in queue
+  let blocks = [];       // destructible blocks
+  let score = 0;
+  let aiming = false;
+  let pullX = 0, pullY = 0;   // current pull offset from rest position
+  let trajectory = [];        // preview points
+  let particles = [];
+  let gameOver = false;
+  let settledTimer = 0;       // time everything has been at rest
+
+  // --- Block types ---
+  function makeBlock(x, y, w, h, hp) {
+    return {
+      x, y, w, h, hp,
+      maxHp: hp,
+      vx: 0, vy: 0,
+      rot: 0, vr: 0,
+      mass: (w * h) / 4000,
+      grounded: false,
+      dead: false,
+      hue: 18 + Math.random() * 14,
+    };
+  }
+
+  function buildStack() {
+    blocks = [];
+    const baseX = W * 0.7;
+    const bw = 46, bh = 46;
+    // two towers with a crossbeam
+    const colA = baseX - 80;
+    const colB = baseX + 40;
+    const rows = 4;
+    for (let r = 0; r < rows; r++) {
+      blocks.push(makeBlock(colA, GROUND_Y - bh * (r + 1), bw, bh, 3));
+      blocks.push(makeBlock(colB, GROUND_Y - bh * (r + 1), bw, bh, 3));
+    }
+    // crossbeam on top
+    blocks.push(makeBlock(colA - 8, GROUND_Y - bh * (rows + 1) - 20, (colB + bw) - colA + 16, 22, 4));
+    // a couple of small blocks resting on the beam
+    blocks.push(makeBlock(colA + 18, GROUND_Y - bh * (rows + 1) - 52, 28, 30, 2));
+    blocks.push(makeBlock(colB - 8, GROUND_Y - bh * (rows + 1) - 52, 28, 30, 2));
+  }
+
+  function resetLevel() {
+    buildStack();
+    bird = null;
+    nextBirds = MAX_BIRDS;
+    score = 0;
+    particles = [];
+    gameOver = false;
+    aiming = false;
+    trajectory = [];
+    settledTimer = 0;
+    msgEl.style.opacity = 0;
+    spawnBirdAtSling();
+    updateHUD();
+  }
+
+  function spawnBirdAtSling() {
+    if (bird) return;
+    if (nextBirds <= 0) return;
+    bird = {
+      x: slingshot.x,
+      y: slingshot.y - slingshot.forkH,
+      r: 16,
+      vx: 0, vy: 0,
+      inSling: true,
+      flying: false,
+      rot: 0,
+      trail: [],
+    };
+    pullX = 0; pullY = 0;
+    aiming = false;
+  }
+
+  function updateHUD() {
+    scoreEl.textContent = score;
+    birdsEl.textContent = (bird && bird.inSling ? 1 : 0) + Math.max(0, nextBirds - 1);
+    // simpler: total birds available including the loaded one
+    birdsEl.textContent = nextBirds;
+  }
+
+  // --- Input ---
+  function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+  }
+
+  function onDown(e) {
+    e.preventDefault();
+    if (gameOver) return;
+    if (!bird || !bird.inSling) return;
+    const p = getPos(e);
+    const dx = p.x - bird.x, dy = p.y - bird.y;
+    if (dx * dx + dy * dy < 60 * 60 || true) { // generous grab area
+      aiming = true;
+      updatePull(p.x, p.y);
+    }
+  }
+  function onMove(e) {
+    if (!aiming) return;
+    e.preventDefault();
+    const p = getPos(e);
+    updatePull(p.x, p.y);
+  }
+  function onUp(e) {
+    if (!aiming) return;
+    e.preventDefault();
+    aiming = false;
+    launch();
+  }
+
+  function updatePull(px, py) {
+    let dx = px - slingshot.x;
+    let dy = py - (slingshot.y - slingshot.forkH);
+    // pull is opposite of aim: bird sits where finger is, but launch is toward sling center
+    // We'll let player drag the bird; launch velocity points from bird back to sling anchor.
+    const len = Math.hypot(dx, dy);
+    if (len > MAX_PULL) {
+      dx = dx / len * MAX_PULL;
+      dy = dy / len * MAX_PULL;
+    }
+    // don't allow pulling forward (right of sling) beyond a little
+    if (dx > MAX_PULL * 0.35) dx = MAX_PULL * 0.35;
+    pullX = dx;
+    pullY = dy;
+    bird.x = slingshot.x + dx;
+    bird.y = (slingshot.y - slingshot.forkH) + dy;
+    computeTrajectory();
+  }
+
+  function launch() {
+    if (!bird) return;
+    const anchorX = slingshot.x;
+    const anchorY = slingshot.y - slingshot.forkH;
+    const dx = anchorX - bird.x;
+    const dy = anchorY - bird.y;
+    const power = Math.hypot(dx, dy) * LAUNCH_SCALE;
+    if (power < 40) { // too weak, snap back
+      bird.x = anchorX;
+      bird.y = anchorY;
+      bird.inSling = true;
+      trajectory = [];
+      return;
+    }
+    const len = Math.hypot(dx, dy) || 1;
+    bird.vx = (dx / len) * power;
+    bird.vy = (dy / len) * power;
+    bird.inSling = false;
+    bird.flying = true;
+    nextBirds -= 1;
+    trajectory = [];
+    updateHUD();
+  }
+
+  function computeTrajectory() {
+    const anchorX = slingshot.x;
+    const anchorY = slingshot.y - slingshot.forkH;
+    const dx = anchorX - bird.x;
+    const dy = anchorY - bird.y;
+    const power = Math.hypot(dx, dy) * LAUNCH_SCALE;
+    const len = Math.hypot(dx, dy) || 1;
+    let vx = (dx / len) * power;
+    let vy = (dy / len) * power;
+    let x = bird.x, y = bird.y;
+    trajectory = [];
+    const dt = 1 / 60;
+    for (let i = 0; i < 70; i++) {
+      vy += GRAVITY * dt;
+      vx *= (1 - AIR * dt);
+      x += vx * dt;
+      y += vy * dt;
+      if (i % 2 === 0) trajectory.push({ x, y });
+      if (y > GROUND_Y || x > W) break;
+    }
+  }
+
+  canvas.addEventListener("mousedown", onDown);
+  window.addEventListener("mousemove", onMove);
+  window.addEventListener("mouseup", onUp);
+  canvas.addEventListener("touchstart", onDown, { passive: false });
+  window.addEventListener("touchmove", onMove, { passive: false });
+  window.addEventListener("touchend", onUp, { passive: false });
+  resetBtn.addEventListener("click", () => resetLevel());
+
+  // --- Physics: bird vs blocks ---
+  function aabb(b, x, y, r) {
+    // closest point on block rect to circle center
+    const cx = Math.max(b.x, Math.min(x, b.x + b.w));
+    const cy = Math.max(b.y, Math.min(y, b.y + b.h));
+    const dx = x - cx, dy = y - cy;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < r * r) {
+      const d = Math.sqrt(d2) || 0.0001;
+      return { nx: dx / d, ny: dy / d, depth: r - d, cx, cy };
+    }
+    return null;
+  }
+
+  function damageBlock(b, impact) {
+    const dmg = Math.max(0, Math.floor(impact));
+    if (dmg <= 0) return;
+    b.hp -= dmg;
+    spawnParticles(b.x + b.w / 2, b.y + b.h / 2, b.hue, Math.min(20, dmg * 4));
+    if (b.hp <= 0 && !b.dead) {
+      b.dead = true;
+      score += 500;
+      spawnParticles(b.x + b.w / 2, b.y + b.h / 2, b.hue, 30);
+    } else if (!b.dead) {
+      score += dmg * 50;
+    }
+    updateHUD();
+  }
+
+  function resolveBirdBlock(b) {
+    const hit = aabb(b, bird.x, bird.y, bird.r);
+    if (!hit) return;
+    // push bird out
+    bird.x += hit.nx * hit.depth;
+    bird.y += hit.ny * hit.depth;
+    // reflect velocity along normal
+    const vn = bird.vx * hit.nx + bird.vy * hit.ny;
+    const impact = -vn;
+    if (impact > 0) {
+      bird.vx -= (1 + RESTITUTION) * vn * hit.nx;
+      bird.vy -= (1 + RESTITUTION) * vn * hit.ny;
+      // transfer momentum to block
+      b.vx += hit.nx * impact * 0.5 / b.mass;
+      b.vy += hit.ny * impact * 0.5 / b.mass;
+      b.vr += (hit.cx - (b.x + b.w / 2)) * 0.002 * impact;
+      damageBlock(b, impact / 120);
+    }
+    // friction tangential
+    const tx = -hit.ny, ty = hit.nx;
+    const vt = bird.vx * tx + bird.vy * ty;
+    bird.vx -= vt * 0.18 * tx;
+    bird.vy -= vt * 0.18 * ty;
+  }
+
+  // --- Particles ---
+  function spawnParticles(x, y, hue, n) {
+    for (let i = 0; i < n; i++) {
+      particles.push({
+        x, y,
+        vx: (Math.random() - 0.5) * 280,
+        vy: (Math.random() - 0.8) * 320,
+        life: 0.6 + Math.random() * 0.5,
+        hue: hue + (Math.random() - 0.5) * 10,
+        size: 2 + Math.random() * 4,
+      });
+    }
+  }
+
+  // --- Main loop ---
+  let last = performance.now();
+  function loop(now) {
+    let dt = (now - last) / 1000;
+    last = now;
+    if (dt > 0.05) dt = 0.05; // clamp
+    update(dt);
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  function update(dt) {
+    // Bird
+    if (bird && bird.flying) {
+      bird.vy += GRAVITY * dt;
+      bird.vx *= (1 - AIR * dt);
+      bird.x += bird.vx * dt;
+      bird.y += bird.vy * dt;
+      bird.rot += bird.vx * dt * 0.04;
+      bird.trail.push({ x: bird.x, y: bird.y, life: 0.4 });
+      if (bird.trail.length > 40) bird.trail.shift();
+      for (const t of bird.trail) t.life -= dt;
+
+      // collisions with blocks
+      for (const b of blocks) {
+        if (!b.dead) resolveBirdBlock(b);
+      }
+      // ground
+      if (bird.y + bird.r > GROUND_Y) {
+        bird.y = GROUND_Y - bird.r;
+        if (bird.vy > 0) bird.vy = -bird.vy * RESTITUTION;
+        bird.vx *= FRICTION;
+      }
+      // walls
+      if (bird.x < bird.r) { bird.x = bird.r; bird.vx = Math.abs(bird.vx) * 0.5; }
+      if (bird.x > W - bird.r) { bird.x = W - bird.r; bird.vx = -Math.abs(bird.vx) * 0.5; }
+
+      // off-screen / settled -> next bird
+      const speed = Math.hypot(bird.vx, bird.vy);
+      if (bird.x > W + 80 || bird.y > H + 80 || (speed < 12 && bird.y + bird.r >= GROUND_Y - 1)) {
+        bird.flying = false;
+        bird.done = true;
+      }
+    }
+
+    if (bird && bird.done) {
+      // wait a moment, then load next
+      bird.doneTimer = (bird.doneTimer || 0) + dt;
+      if (bird.doneTimer > 0.4) {
+        bird = null;
+        if (nextBirds > 0) spawnBirdAtSling();
+        else checkEndState();
+      }
+    }
+
+    // Blocks physics
+    let anyMoving = false;
+    for (const b of blocks) {
+      if (b.dead) continue;
+      b.vy += GRAVITY * dt;
+      b.vx *= (1 - AIR * dt * 0.4);
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.rot += b.vr * dt;
+      b.vr *= (1 - 1.2 * dt);
+
+      // ground
+      if (b.y + b.h > GROUND_Y) {
+        b.y = GROUND_Y - b.h;
+        if (b.vy > 0) b.vy = -b.vy * RESTITUTION * 0.5;
+        b.vx *= 0.8;
+        b.vr *= 0.7;
+        if (Math.abs(b.vy) < 8) b.vy = 0;
+      }
+      // walls
+      if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx) * 0.4; }
+      if (b.x + b.w > W) { b.x = W - b.w; b.vx = -Math.abs(b.vx) * 0.4; }
+
+      // keep rotation mild so blocks don't visually clip badly
+      b.rot = Math.max(-0.5, Math.min(0.5, b.rot));
+
+      if (Math.hypot(b.vx, b.vy) > 6) anyMoving = true;
+    }
+
+    // simple block-block resolution (axis aligned, ignore rot for stability)
+    for (let i = 0; i < blocks.length; i++) {
+      const a = blocks[i];
+      if (a.dead) continue;
+      for (let j = i + 1; j < blocks.length; j++) {
+        const c = blocks[j];
+        if (c.dead) continue;
+        const ox = Math.min(a.x + a.w, c.x + c.w) - Math.max(a.x, c.x);
+        const oy = Math.min(a.y + a.h, c.y + c.h) - Math.max(a.y, c.y);
+        if (ox > 0 && oy > 0) {
+          if (ox < oy) {
+            // resolve horizontally
+            const push = ox / 2;
+            if (a.x < c.x) { a.x -= push; c.x += push; }
+            else { a.x += push; c.x -= push; }
+            const avg = (a.vx - c.vx) * 0.5;
+            a.vx -= avg * (1 - RESTITUTION);
+            c.vx += avg * (1 - RESTITUTION);
+          } else {
+            const push = oy / 2;
+            if (a.y < c.y) { a.y -= push; c.y += push; }
+            else { a.y += push; c.y -= push; }
+            const avg = (a.vy - c.vy) * 0.5;
+            a.vy -= avg * (1 - RESTITUTION);
+            c.vy += avg * (1 - RESTITUTION);
+            // light damage from hard vertical crush
+            const impact = Math.abs(a.vy - c.vy);
+            if (impact > 320) {
+              damageBlock(a, impact / 140);
+              damageBlock(c, impact / 140);
+            }
+          }
+          anyMoving = true;
+        }
+      }
+    }
+
+    // remove dead blocks
+    blocks = blocks.filter(b => !b.dead);
+
+    // particles
+    for (const p of particles) {
+      p.vy += GRAVITY * dt * 0.6;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.life -= dt;
+    }
+    particles = particles.filter(p => p.life > 0);
+
+    // win/lose detection
+    if (!gameOver && !bird) {
+      checkEndState();
+    }
+    if (!gameOver && (!anyMoving) && (!bird || !bird.flying)) {
+      settledTimer += dt;
+    } else {
+      settledTimer = 0;
+    }
+  }
+
+  function checkEndState() {
+    const remaining = blocks.filter(b => !b.dead).length;
+    if (remaining === 0 && !gameOver) {
+      gameOver = true;
+      const bonus = nextBirds * 1000;
+      score += bonus;
+      updateHUD();
+      showMessage("LEVEL CLEARED!  +" + bonus, "#7ee787");
+    } else if (nextBirds <= 0 && (!bird || bird.done) && !gameOver) {
+      gameOver = true;
+      showMessage("Out of birds — try again", "#ff8a65");
+    }
+  }
+
+  function showMessage(text, color) {
+    msgEl.textContent = text;
+    msgEl.style.color = color;
+    msgEl.style.opacity = 1;
+  }
+
+  // --- Rendering ---
+  function render() {
+    // sky
+    const sky = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+    sky.addColorStop(0, "#8ecae6");
+    sky.addColorStop(1, "#cfeffd");
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+
+    // distant hills
+    ctx.fillStyle = "#9fc77a";
+    drawHills(GROUND_Y - 40, 120, 0.5);
+    ctx.fillStyle = "#8bb866";
+    drawHills(GROUND_Y - 20, 80, 0.8);
+
+    // clouds
+    drawClouds();
+
+    // ground
+    ctx.fillStyle = "#6b4a2b";
+    ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+    ctx.fillStyle = "#5a9e3a";
+    ctx.fillRect(0, GROUND_Y, W, 14);
+    ctx.fillStyle = "#4f8c33";
+    ctx.fillRect(0, GROUND_Y + 14, W, 4);
+
+    // slingshot
+    drawSlingshot();
+
+    // trajectory preview
+    if (aiming && trajectory.length) {
+      ctx.fillStyle = "rgba(255,255,255,.85)";
+      for (let i = 0; i < trajectory.length; i++) {
+        const t = trajectory[i];
+        const r = 4 - i * 0.04;
+        if (r <= 0) break;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // pull band
+      ctx.strokeStyle = "#3a2410";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(slingshot.x, slingshot.y - slingshot.forkH);
+      ctx.lineTo(bird.x, bird.y);
+      ctx.stroke();
+    }
+
+    // blocks
+    for (const b of blocks) drawBlock(b);
+
+    // bird
+    if (bird) drawBird(bird);
+
+    // particles
+    for (const p of particles) {
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = `hsl(${p.hue}, 60%, 55%)`;
+      ctx.fillRect(p.x, p.y, p.size, p.size);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawHills(baseY, amp, freq) {
+    ctx.beginPath();
+    ctx.moveTo(0, baseY);
+    for (let x = 0; x <= W; x += 20) {
+      const y = baseY - Math.sin((x * freq * 0.01)) * amp * 0.4 - amp * 0.3;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(W, GROUND_Y);
+    ctx.lineTo(0, GROUND_Y);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawClouds() {
+    ctx.fillStyle = "rgba(255,255,255,.8)";
+    const drift = (performance.now() * 0.005) % W;
+    for (let i = 0; i < 4; i++) {
+      const cx = ((i * W) / 3 + drift) % (W + 120) - 60;
+      const cy = 60 + (i % 2) * 40;
+      cloud(cx, cy);
+    }
+  }
+  function cloud(x, y) {
+    ctx.beginPath();
+    ctx.arc(x, y, 24, 0, Math.PI * 2);
+    ctx.arc(x + 26, y + 6, 20, 0, Math.PI * 2);
+    ctx.arc(x - 24, y + 8, 18, 0, Math.PI * 2);
+    ctx.arc(x + 4, y + 14, 26, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawSlingshot() {
+    const x = slingshot.x, y = slingshot.y;
+    ctx.fillStyle = "#5b3a1a";
+    // post
+    ctx.fillRect(x - 9, y - slingshot.forkH, 18, slingshot.forkH);
+    // forks
+    ctx.fillRect(x - 9 - slingshot.forkW / 2, y - slingshot.forkH - 16, slingshot.forkW / 2, 14);
+    ctx.fillRect(x + 9, y - slingshot.forkH - 16, slingshot.forkW / 2, 14);
+    ctx.strokeStyle = "#3a2410";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(x - 9 - slingshot.forkW / 2, y - slingshot.forkH - 16, slingshot.forkW / 2, 14);
+    ctx.strokeRect(x + 9, y - slingshot.forkH - 16, slingshot.forkW / 2, 14);
+  }
+
+  function drawBlock(b) {
+    ctx.save();
+    const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+    ctx.translate(cx, cy);
+    ctx.rotate(b.rot);
+    const hpRatio = b.hp / b.maxHp;
+    const light = 50 + hpRatio * 12;
+    ctx.fillStyle = `hsl(${b.hue}, 55%, ${light}%)`;
+    ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h);
+    // top highlight
+    ctx.fillStyle = "rgba(255,255,255,.18)";
+    ctx.fillRect(-b.w / 2, -b.h / 2, b.w, 5);
+    // cracks when damaged
+    ctx.strokeStyle = "rgba(40,20,10,.5)";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(-b.w / 2, -b.h / 2, b.w, b.h);
+    if (hpRatio < 0.7) {
+      ctx.beginPath();
+      ctx.moveTo(-b.w / 4, -b.h / 2);
+      ctx.lineTo(-2, 0);
+      ctx.lineTo(b.w / 5, b.h / 2);
+      ctx.stroke();
+    }
+    if (hpRatio < 0.4) {
+      ctx.beginPath();
+      ctx.moveTo(b.w / 3, -b.h / 2);
+      ctx.lineTo(0, b.h / 6);
+      ctx.lineTo(-b.w / 4, b.h / 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawBird(b) {
+    // trail
+    for (const t of b.trail) {
+      if (t.life <= 0) continue;
+      ctx.globalAlpha = Math.max(0, t.life) * 0.5;
+      ctx.fillStyle = "#e0e0e0";
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, b.r * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    ctx.rotate(b.rot);
+    // body
+    ctx.fillStyle = "#e8462f";
+    ctx.beginPath();
+    ctx.arc(0, 0, b.r, 0, Math.PI * 2);
+    ctx.fill();
+    // belly
+    ctx.fillStyle = "#f6d6b8";
+    ctx.beginPath();
+    ctx.arc(2, 4, b.r * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+    // eyes
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.arc(6, -4, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(12, -4, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#222";
+    ctx.beginPath(); ctx.arc(8, -4, 2.2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(13, -4, 2.2, 0, Math.PI * 2); ctx.fill();
+    // beak
+    ctx.fillStyle = "#f5a623";
+    ctx.beginPath();
+    ctx.moveTo(b.r - 2, 0); ctx.lineTo(b.r + 8, -3); ctx.lineTo(b.r + 8, 4); ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // --- Boot ---
+  window.addEventListener("resize", resize);
+  resize();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
