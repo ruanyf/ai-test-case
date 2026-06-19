@@ -224,26 +224,16 @@ Credits: [Simon Willison](https://simonwillison.net/2026/Feb/25/present/)
 
 ## Case07
 
-生成一个 Rust 语言的命令行工具，将文本输入转换为词云，以 PNG 图片输出。
+生成一个 Node.js 语言的命令行工具，将文本输入转换为词云，以 PNG 图片输出。
 
 ![](img/case07.png)
 
 提示词
 
 ```markdown
-Create and test a Rust CLI tool that can create "word cloud" data visualizations given a long input text
+生成一个 Node.js 命令行工具，接受一个文本文件作为参数，根据该文件里面的词汇出现频率，生成“词云”的数据可视化图。
 
-It should accept an optional filename for the input file, train from stdin if one is not provided
-
-It should generate wordcloud.png or wordcloud-2.png etc if the files already exist - a -o filename option can be used to force the filename
-
-Use sensible result width and height but provide more options for customizing them, same for color scheme
-
-Test it on data from https://simonwillison.net/dashboard/all-content-in-a-month.json?month=2026-02 and commit the resulting PNG with your file
-
-In the report say it was inspired by Max Woolf in https://minimaxir.com/2026/02/ai-agent-coding/
-
-Don’t use an existing crate for anything other than png generating and text rendering
+生成结果是一个 PNG 图片，文件名为 wordcloud.png。用户可以使用 `-o filename`选项强制指定文件名。
 ```
 
 Credits: [Simon Willison](https://simonwillison.net/guides/agentic-engineering-patterns/interactive-explanations/)
