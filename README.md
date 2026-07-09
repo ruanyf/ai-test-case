@@ -254,4 +254,5 @@ Generate an SVG of a pelican riding a bicycle.
 
 - Alejandro AO, [GPT-5.3 Codex vs Claude Opus 4.6: Real Coding Tasks](https://www.youtube.com/watch?v=c31Ow23mErE)
 - Alejandro AO, [Kimi Code vs Claude Code vs Codex - NEW Best For Coding?](https://www.youtube.com/watch?v=IjjMsfhJEcE)
+- TryAI, [We made Grok 4.5, GPT-5.5, and Claude build the same apps](https://www.tryai.dev/blog/grok-4.5-vs-gpt-5.5-vs-claude-build-off)
 
