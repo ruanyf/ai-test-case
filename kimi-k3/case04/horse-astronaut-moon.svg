@@ -1,0 +1,213 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 640" width="900" height="640">
+  <title>A horse riding piggyback on an astronaut walking on the Moon</title>
+  <desc>A cartoon astronaut in a white spacesuit walks across the cratered lunar surface with Earth in the sky, carrying a cheerful chestnut horse piggyback-style on his shoulders.</desc>
+
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#05070f"/>
+      <stop offset="1" stop-color="#141c38"/>
+    </linearGradient>
+    <radialGradient id="earthGrad" cx="0.38" cy="0.35" r="0.9">
+      <stop offset="0" stop-color="#8ec9ff"/>
+      <stop offset="0.5" stop-color="#2f74c9"/>
+      <stop offset="1" stop-color="#123f7d"/>
+    </radialGradient>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d5d9df"/>
+      <stop offset="1" stop-color="#8b919b"/>
+    </linearGradient>
+    <linearGradient id="suit" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d3d8df"/>
+    </linearGradient>
+    <linearGradient id="visor" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe08a"/>
+      <stop offset="0.5" stop-color="#e8a33d"/>
+      <stop offset="1" stop-color="#7a4a12"/>
+    </linearGradient>
+    <linearGradient id="horse" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c07a3e"/>
+      <stop offset="1" stop-color="#9a5a28"/>
+    </linearGradient>
+  </defs>
+
+  <!-- ======== sky ======== -->
+  <rect width="900" height="640" fill="url(#sky)"/>
+
+  <!-- stars -->
+  <g fill="#ffffff">
+    <circle cx="40" cy="60" r="1.6" opacity=".8"/>
+    <circle cx="95" cy="150" r="1.2" opacity=".5"/>
+    <circle cx="160" cy="40" r="1.8" opacity=".9"/>
+    <circle cx="210" cy="210" r="1.1" opacity=".4"/>
+    <circle cx="260" cy="90" r="1.4" opacity=".7"/>
+    <circle cx="320" cy="45" r="1.2" opacity=".6"/>
+    <circle cx="375" cy="120" r="1.7" opacity=".85"/>
+    <circle cx="430" cy="60" r="1.1" opacity=".5"/>
+    <circle cx="480" cy="180" r="1.3" opacity=".6"/>
+    <circle cx="530" cy="95" r="1.9" opacity=".9"/>
+    <circle cx="585" cy="45" r="1.2" opacity=".5"/>
+    <circle cx="640" cy="140" r="1.5" opacity=".7"/>
+    <circle cx="700" cy="70" r="1.1" opacity=".45"/>
+    <circle cx="745" cy="190" r="1.4" opacity=".6"/>
+    <circle cx="800" cy="50" r="1.8" opacity=".85"/>
+    <circle cx="855" cy="120" r="1.2" opacity=".55"/>
+    <circle cx="880" cy="210" r="1.3" opacity=".5"/>
+    <circle cx="60" cy="260" r="1.2" opacity=".5"/>
+    <circle cx="150" cy="320" r="1.1" opacity=".4"/>
+    <circle cx="240" cy="300" r="1.3" opacity=".45"/>
+    <circle cx="690" cy="290" r="1.2" opacity=".5"/>
+    <circle cx="780" cy="320" r="1.1" opacity=".4"/>
+    <circle cx="520" cy="300" r="1.0" opacity=".35"/>
+    <circle cx="340" cy="240" r="1.1" opacity=".4"/>
+    <circle cx="25" cy="180" r="1.3" opacity=".55"/>
+    <path d="M610,190 l1.5,5 5,1.5 -5,1.5 -1.5,5 -1.5,-5 -5,-1.5 5,-1.5 Z" opacity=".8"/>
+    <path d="M120,225 l1.2,4 4,1.2 -4,1.2 -1.2,4 -1.2,-4 -4,-1.2 4,-1.2 Z" opacity=".7"/>
+  </g>
+
+  <!-- Earth -->
+  <g transform="translate(140,112)">
+    <circle r="50" fill="url(#earthGrad)"/>
+    <path d="M-30,-18 C-18,-30 4,-32 16,-24 C8,-16 -6,-12 -18,-8 Z" fill="#4caf7d" opacity=".9"/>
+    <path d="M6,8 C18,2 34,6 38,16 C30,26 12,28 2,20 Z" fill="#4caf7d" opacity=".85"/>
+    <path d="M-38,14 C-30,8 -18,10 -14,18 C-20,26 -34,26 -40,20 Z" fill="#3e9e6c" opacity=".8"/>
+    <path d="M-46,-6 C-30,-14 -10,-16 8,-12" stroke="#ffffff" stroke-width="5" fill="none" opacity=".5" stroke-linecap="round"/>
+    <path d="M-20,24 C-4,18 16,18 30,24" stroke="#ffffff" stroke-width="4" fill="none" opacity=".4" stroke-linecap="round"/>
+    <circle r="50" fill="none" stroke="#a8c8ff" stroke-width="2" opacity=".25"/>
+  </g>
+
+  <!-- ======== lunar ground ======== -->
+  <path d="M0,482 C110,462 230,470 350,478 C470,486 590,468 710,472 C790,475 855,480 900,476 L900,640 L0,640 Z" fill="url(#ground)"/>
+  <path d="M0,482 C110,462 230,470 350,478 C470,486 590,468 710,472 C790,475 855,480 900,476" fill="none" stroke="#eef1f5" stroke-width="3" opacity=".7"/>
+
+  <!-- craters -->
+  <ellipse cx="150" cy="550" rx="58" ry="13" fill="#969da7"/>
+  <ellipse cx="150" cy="546" rx="46" ry="9" fill="#bcc2cb"/>
+  <ellipse cx="720" cy="582" rx="72" ry="15" fill="#969da7"/>
+  <ellipse cx="720" cy="577" rx="58" ry="11" fill="#bcc2cb"/>
+  <ellipse cx="505" cy="612" rx="40" ry="9" fill="#9aa1ab"/>
+  <ellipse cx="505" cy="609" rx="31" ry="6.5" fill="#c2c8d0"/>
+  <ellipse cx="835" cy="532" rx="26" ry="7" fill="#9aa1ab"/>
+  <ellipse cx="835" cy="530" rx="19" ry="5" fill="#c2c8d0"/>
+  <ellipse cx="70" cy="606" rx="34" ry="8" fill="#9aa1ab"/>
+  <ellipse cx="70" cy="603" rx="26" ry="6" fill="#c2c8d0"/>
+
+  <!-- rocks -->
+  <circle cx="630" cy="540" r="4" fill="#7f868f"/>
+  <circle cx="665" cy="552" r="3" fill="#878e97"/>
+  <circle cx="250" cy="585" r="5" fill="#7f868f"/>
+  <circle cx="290" cy="595" r="3" fill="#878e97"/>
+
+  <!-- footprints trailing behind -->
+  <g fill="#7f868f" opacity=".55">
+    <ellipse cx="308" cy="514" rx="11" ry="4.5" transform="rotate(-6 308 514)"/>
+    <ellipse cx="272" cy="510" rx="11" ry="4.5" transform="rotate(6 272 510)"/>
+    <ellipse cx="238" cy="515" rx="11" ry="4.5" transform="rotate(-6 238 515)"/>
+    <ellipse cx="204" cy="511" rx="11" ry="4.5" transform="rotate(6 204 511)"/>
+    <ellipse cx="172" cy="516" rx="11" ry="4.5" transform="rotate(-6 172 516)"/>
+  </g>
+
+  <!-- moon dust kicked up -->
+  <g fill="#aeb4bd" opacity=".5">
+    <circle cx="322" cy="510" r="5"/>
+    <circle cx="308" cy="504" r="4"/>
+    <circle cx="296" cy="497" r="3"/>
+  </g>
+
+  <!-- soft shadow under the pair -->
+  <ellipse cx="402" cy="524" rx="112" ry="12" fill="#4a4f57" opacity=".35"/>
+
+  <!-- ======== horse (parts behind the astronaut) ======== -->
+  <!-- tail -->
+  <path d="M286,198 C262,194 238,206 230,232 C224,252 230,272 246,282 C241,266 246,248 258,236 C268,225 280,218 292,216 Z" fill="#5d3a1a"/>
+  <path d="M278,214 C264,222 254,236 250,254" stroke="#4a2e12" stroke-width="2" fill="none" opacity=".6"/>
+
+  <!-- body -->
+  <ellipse cx="348" cy="224" rx="80" ry="45" transform="rotate(-8 348 224)" fill="url(#horse)" stroke="#7c4520" stroke-width="2.5"/>
+  <ellipse cx="352" cy="244" rx="58" ry="26" transform="rotate(-8 352 244)" fill="#c98d54" opacity=".45"/>
+  <ellipse cx="346" cy="196" rx="52" ry="16" transform="rotate(-8 346 196)" fill="#d8955a" opacity=".5"/>
+
+  <!-- far hind leg (darker, behind astronaut) -->
+  <path d="M300,252 C290,288 294,328 310,360 C318,376 334,380 342,370 C346,364 344,356 338,350 C328,338 322,316 324,292 C325,274 318,258 308,252 Z" fill="#8a4f26" stroke="#6b3a18" stroke-width="2"/>
+  <rect x="316" y="360" width="24" height="14" rx="5" fill="#454545" transform="rotate(8 328 367)"/>
+
+  <!-- ======== astronaut ======== -->
+  <!-- PLSS backpack -->
+  <rect x="326" y="346" width="38" height="88" rx="9" fill="#e3e7ec" stroke="#9aa1ab" stroke-width="2"/>
+  <line x1="332" y1="368" x2="358" y2="368" stroke="#b6bcc5" stroke-width="2"/>
+  <line x1="332" y1="384" x2="358" y2="384" stroke="#b6bcc5" stroke-width="2"/>
+  <rect x="326" y="400" width="38" height="8" fill="#d9534f" opacity=".85"/>
+  <line x1="340" y1="346" x2="332" y2="312" stroke="#c9cfd7" stroke-width="3"/>
+  <circle cx="331" cy="309" r="4" fill="#d9534f"/>
+
+  <!-- legs (walking pose) -->
+  <path d="M386,430 C376,452 366,476 360,500" stroke="url(#suit)" stroke-width="26" fill="none" stroke-linecap="round"/>
+  <path d="M414,430 C428,448 440,468 448,494" stroke="url(#suit)" stroke-width="26" fill="none" stroke-linecap="round"/>
+
+  <!-- boots -->
+  <rect x="336" y="494" width="42" height="26" rx="9" fill="#eef1f4" stroke="#9aa1ab" stroke-width="2"/>
+  <rect x="336" y="512" width="42" height="8" rx="4" fill="#7c828c"/>
+  <rect x="434" y="488" width="46" height="28" rx="9" fill="#eef1f4" stroke="#9aa1ab" stroke-width="2"/>
+  <rect x="434" y="508" width="46" height="8" rx="4" fill="#7c828c"/>
+
+  <!-- torso -->
+  <rect x="360" y="334" width="84" height="102" rx="20" fill="url(#suit)" stroke="#9aa1ab" stroke-width="2.5"/>
+  <rect x="390" y="360" width="28" height="36" rx="5" fill="#dde1e7" stroke="#9aa1ab" stroke-width="2"/>
+  <circle cx="398" cy="370" r="2.8" fill="#d9534f"/>
+  <circle cx="409" cy="370" r="2.8" fill="#5bc0de"/>
+  <rect x="395" y="379" width="18" height="8" rx="2" fill="#b6bcc5"/>
+  <line x1="362" y1="424" x2="442" y2="424" stroke="#b6bcc5" stroke-width="3"/>
+
+  <!-- neck ring + helmet -->
+  <ellipse cx="401" cy="336" rx="27" ry="9" fill="#c9cfd7" stroke="#9aa1ab" stroke-width="1.5"/>
+  <circle cx="400" cy="296" r="43" fill="url(#suit)" stroke="#9aa1ab" stroke-width="2.5"/>
+  <ellipse cx="414" cy="299" rx="29" ry="25" transform="rotate(-8 414 299)" fill="#caa64b"/>
+  <ellipse cx="414" cy="299" rx="25" ry="21" transform="rotate(-8 414 299)" fill="url(#visor)"/>
+  <ellipse cx="406" cy="290" rx="9" ry="5" transform="rotate(-25 406 290)" fill="#ffffff" opacity=".75"/>
+  <circle cx="424" cy="306" r="1.5" fill="#ffffff" opacity=".8"/>
+  <circle cx="362" cy="284" r="4" fill="#d9534f" stroke="#9aa1ab" stroke-width="1.5"/>
+
+  <!-- ======== horse (parts in front) ======== -->
+  <!-- near hind leg wrapped around the waist -->
+  <path d="M332,262 C320,300 324,344 342,378 C350,394 366,400 376,394 C382,390 382,382 376,376 C364,364 358,344 358,320 C358,300 354,280 346,268 Z" fill="url(#horse)" stroke="#7c4520" stroke-width="2.5"/>
+  <rect x="352" y="384" width="26" height="15" rx="6" fill="#3f3f3f" transform="rotate(18 365 391)"/>
+
+  <!-- neck -->
+  <path d="M402,246 C404,214 414,184 434,162 C442,154 452,150 460,154 L472,168 C460,182 450,200 446,220 C443,232 441,240 439,248 Z" fill="url(#horse)" stroke="#7c4520" stroke-width="2.5"/>
+
+  <!-- mane -->
+  <path d="M458,150 L444,158 L451,166 L435,175 L442,183 L426,192 L433,200 L417,210 L424,218 L410,228 L415,236 L402,246 L416,252 C420,232 428,206 440,186 C447,174 455,162 464,154 Z" fill="#5d3a1a"/>
+
+  <!-- ears -->
+  <path d="M446,134 L439,106 L459,124 Z" fill="url(#horse)" stroke="#7c4520" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M463,129 L463,100 L478,122 Z" fill="url(#horse)" stroke="#7c4520" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M448,126 L444,112 L454,122 Z" fill="#7c4520" opacity=".6"/>
+
+  <!-- head -->
+  <path d="M448,132 C462,124 481,128 491,141 C503,149 512,159 514,169 C516,177 511,183 503,185 L495,187 C489,193 477,196 467,193 C455,190 446,181 443,168 C440,155 441,140 448,132 Z" fill="url(#horse)" stroke="#7c4520" stroke-width="2.5"/>
+
+  <!-- forelock -->
+  <path d="M446,132 C452,116 468,110 480,116 C472,120 466,126 463,134 Z" fill="#5d3a1a"/>
+
+  <!-- blaze -->
+  <path d="M471,131 C479,141 487,155 491,171 C492,177 489,182 484,182 C478,182 474,177 473,169 C470,156 465,144 459,136 Z" fill="#f3ede4" opacity=".92"/>
+
+  <!-- muzzle shading + face -->
+  <ellipse cx="499" cy="178" rx="12" ry="8" fill="#c98d54" opacity=".55" transform="rotate(12 499 178)"/>
+  <circle cx="471" cy="150" r="4.2" fill="#241a12"/>
+  <circle cx="472.6" cy="148.4" r="1.4" fill="#ffffff"/>
+  <ellipse cx="504" cy="171" rx="3" ry="2.2" fill="#5d3a1a" transform="rotate(20 504 171)"/>
+  <path d="M487,188 C493,192 501,192 507,187" stroke="#5d3a1a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+
+  <!-- forelegs draped over the shoulders -->
+  <path d="M368,252 C362,280 358,308 360,332 C361,344 366,352 372,352 L380,352 C384,344 384,334 382,322 C380,300 382,276 388,254 Z" fill="#8a4f26" stroke="#6b3a18" stroke-width="2"/>
+  <rect x="358" y="346" width="24" height="14" rx="5" fill="#454545"/>
+  <path d="M452,256 C458,286 461,314 458,338 C457,350 452,358 445,358 L437,358 C433,350 433,340 435,328 C437,304 435,280 430,258 Z" fill="url(#horse)" stroke="#7c4520" stroke-width="2.5"/>
+  <rect x="429" y="350" width="25" height="15" rx="5" fill="#3f3f3f"/>
+
+  <!-- astronaut arms gripping the forelegs -->
+  <path d="M368,366 C356,368 350,360 352,350" stroke="#c3c9d1" stroke-width="19" fill="none" stroke-linecap="round"/>
+  <circle cx="356" cy="349" r="10" fill="#dfe3e8" stroke="#9aa1ab" stroke-width="2"/>
+  <path d="M436,366 C450,370 457,362 454,352" stroke="url(#suit)" stroke-width="20" fill="none" stroke-linecap="round"/>
+  <circle cx="450" cy="353" r="11" fill="#eef1f4" stroke="#9aa1ab" stroke-width="2"/>
+</svg>

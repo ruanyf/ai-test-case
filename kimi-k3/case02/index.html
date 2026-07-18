@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rubik's Cube</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: radial-gradient(circle at 50% 25%, #2b3a67 0%, #141b34 55%, #0a0e1f 100%);
+    color: #fff;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  h1 {
+    font-size: 2.4rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    background: linear-gradient(90deg, #ff5f6d, #ffc371, #4fc3f7, #81c784);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 4px 24px rgba(0, 0, 0, .4);
+  }
+
+  #scene {
+    width: 420px;
+    height: 420px;
+    max-width: 90vw;
+    max-height: 55vh;
+    perspective: 1100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    touch-action: none;
+  }
+  #scene:active { cursor: grabbing; }
+
+  #cube {
+    position: relative;
+    width: 0;
+    height: 0;
+    transform-style: preserve-3d;
+  }
+
+  .cubie {
+    position: absolute;
+    transform-style: preserve-3d;
+  }
+
+  .face {
+    position: absolute;
+    inset: 0;
+    background: #151515;
+    border-radius: 7px;
+    backface-visibility: hidden;
+  }
+
+  .sticker {
+    position: absolute;
+    inset: 4px;
+    border-radius: 6px;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, .35),
+                inset 0 2px 3px rgba(255, 255, 255, .35);
+  }
+
+  #shadow {
+    position: absolute;
+    width: 320px;
+    height: 320px;
+    left: -160px;
+    top: -160px;
+    background: radial-gradient(closest-side, rgba(0, 0, 0, .55), transparent 72%);
+    border-radius: 50%;
+    filter: blur(6px);
+  }
+
+  .controls { display: flex; gap: 18px; }
+
+  button {
+    padding: 14px 42px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+  }
+  #scrambleBtn {
+    background: linear-gradient(135deg, #ff5f6d, #ff8a5c);
+    box-shadow: 0 6px 20px rgba(255, 95, 109, .45);
+  }
+  #solveBtn {
+    background: linear-gradient(135deg, #2196f3, #21cba8);
+    box-shadow: 0 6px 20px rgba(33, 150, 243, .45);
+  }
+  button:hover:not(:disabled) { transform: translateY(-2px) scale(1.04); }
+  button:active:not(:disabled) { transform: scale(.97); }
+  button:disabled { opacity: .35; cursor: not-allowed; }
+
+  #status {
+    font-size: .95rem;
+    color: rgba(255, 255, 255, .65);
+    letter-spacing: .5px;
+    min-height: 1.2em;
+  }
+</style>
+</head>
+<body>
+
+<h1>RUBIK'S CUBE</h1>
+
+<div id="scene">
+  <div id="cube"></div>
+</div>
+
+<div class="controls">
+  <button id="scrambleBtn">Scramble</button>
+  <button id="solveBtn">Solve</button>
+</div>
+
+<p id="status">Drag the cube to rotate the view</p>
+
+<script>
+"use strict";
+
+const SIZE = 64;              // cubie edge in px
+const STEP = SIZE + 6;        // spacing between cubie centers
+const HALF = SIZE / 2;
+
+const cubeEl   = document.getElementById("cube");
+const statusEl = document.getElementById("status");
+const scrambleBtn = document.getElementById("scrambleBtn");
+const solveBtn    = document.getElementById("solveBtn");
+
+/* ---------- face definitions (axes: 0=x right, 1=y down, 2=z toward viewer) ---------- */
+const FACES = [
+  { key: "R", axis: 0, sign:  1, t: "rotateY(90deg)",    color: "#c41e3a" }, // red
+  { key: "L", axis: 0, sign: -1, t: "rotateY(-90deg)",   color: "#ff7b00" }, // orange
+  { key: "D", axis: 1, sign:  1, t: "rotateX(-90deg)",   color: "#ffd500" }, // yellow
+  { key: "U", axis: 1, sign: -1, t: "rotateX(90deg)",    color: "#f4f4f4" }, // white
+  { key: "F", axis: 2, sign:  1, t: "",                  color: "#009b48" }, // green
+  { key: "B", axis: 2, sign: -1, t: "rotateY(180deg)",   color: "#1e5bff" }, // blue
+];
+
+/* ---------- small 3x3 integer matrix helpers ---------- */
+const IDENTITY = [[1,0,0],[0,1,0],[0,0,1]];
+
+function applyMat(m, v) {
+  return [
+    m[0][0]*v[0] + m[0][1]*v[1] + m[0][2]*v[2],
+    m[1][0]*v[0] + m[1][1]*v[1] + m[1][2]*v[2],
+    m[2][0]*v[0] + m[2][1]*v[1] + m[2][2]*v[2],
+  ];
+}
+
+function mulMat(a, b) {
+  const r = [[0,0,0],[0,0,0],[0,0,0]];
+  for (let i = 0; i < 3; i++)
+    for (let j = 0; j < 3; j++)
+      for (let k = 0; k < 3; k++)
+        r[i][j] += a[i][k] * b[k][j];
+  return r;
+}
+
+/* 90° rotation about `axis`, dir = +1/-1 (matches CSS rotate3d positive direction) */
+function rotMatrix(axis, dir) {
+  const s = dir;
+  if (axis === 0) return [[1,0,0],[0,0,-s],[0,s,0]];
+  if (axis === 1) return [[0,0,s],[0,1,0],[-s,0,0]];
+  return [[0,-s,0],[s,0,0],[0,0,1]];
+}
+
+function mat3d(m) {
+  return "matrix3d(" +
+    m[0][0]+","+m[1][0]+","+m[2][0]+",0," +
+    m[0][1]+","+m[1][1]+","+m[2][1]+",0," +
+    m[0][2]+","+m[1][2]+","+m[2][2]+",0," +
+    "0,0,0,1)";
+}
+
+/* ---------- build the 27 cubies ---------- */
+const cubies = [];
+
+for (let x = -1; x <= 1; x++)
+for (let y = -1; y <= 1; y++)
+for (let z = -1; z <= 1; z++) {
+  const pos = [x, y, z];
+  const el = document.createElement("div");
+  el.className = "cubie";
+  el.style.width  = SIZE + "px";
+  el.style.height = SIZE + "px";
+  el.style.left = (-HALF) + "px";
+  el.style.top  = (-HALF) + "px";
+
+  for (const f of FACES) {
+    const face = document.createElement("div");
+    face.className = "face";
+    face.style.transform = (f.t ? f.t + " " : "") + "translateZ(" + HALF + "px)";
+    if (pos[f.axis] === f.sign) {
+      const sticker = document.createElement("div");
+      sticker.className = "sticker";
+      sticker.style.background =
+        "linear-gradient(145deg, rgba(255,255,255,.28), rgba(0,0,0,.12)), " + f.color;
+      face.appendChild(sticker);
+    }
+    el.appendChild(face);
+  }
+
+  cubeEl.appendChild(el);
+  cubies.push({ el, pos, orient: IDENTITY.map(r => r.slice()) });
+}
+
+/* floor shadow that follows the cube */
+const shadow = document.createElement("div");
+shadow.id = "shadow";
+shadow.style.transform = "rotateX(-90deg) translateZ(170px)";
+cubeEl.appendChild(shadow);
+
+function render(c, extra) {
+  c.el.style.transform =
+    (extra ? extra + " " : "") +
+    "translate3d(" + c.pos[0]*STEP + "px," + c.pos[1]*STEP + "px," + c.pos[2]*STEP + "px) " +
+    mat3d(c.orient);
+}
+cubies.forEach(c => render(c));
+
+/* ---------- view rotation (drag) ---------- */
+let viewX = -26, viewY = -42;
+function applyView() {
+  cubeEl.style.transform = "rotateX(" + viewX + "deg) rotateY(" + viewY + "deg)";
+}
+applyView();
+
+const scene = document.getElementById("scene");
+let dragging = false, lastX = 0, lastY = 0;
+
+scene.addEventListener("pointerdown", e => {
+  dragging = true; lastX = e.clientX; lastY = e.clientY;
+  scene.setPointerCapture(e.pointerId);
+});
+scene.addEventListener("pointermove", e => {
+  if (!dragging) return;
+  viewY += (e.clientX - lastX) * 0.45;
+  viewX -= (e.clientY - lastY) * 0.45;
+  viewX = Math.max(-120, Math.min(120, viewX));
+  lastX = e.clientX; lastY = e.clientY;
+  applyView();
+});
+scene.addEventListener("pointerup",     () => dragging = false);
+scene.addEventListener("pointercancel", () => dragging = false);
+
+/* ---------- move queue + animation ---------- */
+const AXES = [[1,0,0],[0,1,0],[0,0,1]];
+let queue = [];
+let animating = false;
+let history = [];       // moves applied since the last solved state
+
+function updateUI() {
+  const busy = animating || queue.length > 0;
+  scrambleBtn.disabled = busy;
+  solveBtn.disabled = busy || history.length === 0;
+}
+
+function setStatus(text) { statusEl.textContent = text; }
+
+function enqueue(moves, label, doneLabel) {
+  queue.push(...moves);
+  if (label) queue.label = label;
+  if (doneLabel) queue.doneLabel = doneLabel;
+  processQueue();
+}
+
+function processQueue() {
+  if (animating) return;
+  const mv = queue.shift();
+  if (!mv) {
+    animating = false;
+    if (queue.doneLabel) { setStatus(queue.doneLabel); queue.doneLabel = null; }
+    updateUI();
+    return;
+  }
+  animating = true;
+  updateUI();
+  animateMove(mv, processQueue);
+}
+
+function animateMove(mv, done) {
+  const axisVec = AXES[mv.axis];
+  const affected = cubies.filter(c => c.pos[mv.axis] === mv.layer);
+  const total = 90 * mv.dir;
+  const dur = mv.dur || 260;
+  const start = performance.now();
+
+  function frame(t) {
+    const p = Math.min(1, (t - start) / dur);
+    const e = p < 0.5 ? 2*p*p : -1 + (4 - 2*p)*p;   // easeInOutQuad
+    const extra = "rotate3d(" + axisVec[0] + "," + axisVec[1] + "," + axisVec[2] +
+                  "," + (total * e) + "deg)";
+    affected.forEach(c => render(c, extra));
+    if (p < 1) {
+      requestAnimationFrame(frame);
+    } else {
+      const R = rotMatrix(mv.axis, mv.dir);
+      affected.forEach(c => {
+        c.pos = applyMat(R, c.pos);
+        c.orient = mulMat(R, c.orient);
+        render(c);
+      });
+      animating = false;
+      done();
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- scramble & solve ---------- */
+function scramble() {
+  const moves = [];
+  let last = null;
+  for (let i = 0; i < 20; i++) {
+    let axis, layer;
+    do {
+      axis  = Math.floor(Math.random() * 3);
+      layer = Math.floor(Math.random() * 3) - 1;
+    } while (last && last.axis === axis && last.layer === layer);
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    moves.push({ axis, layer, dir, dur: 170 });
+    history.push({ axis, layer, dir });
+    last = { axis, layer };
+  }
+  setStatus("Scrambling…");
+  enqueue(moves, null, "Scrambled! Hit Solve to watch it unwind.");
+}
+
+function solve() {
+  const moves = history.slice().reverse()
+    .map(m => ({ axis: m.axis, layer: m.layer, dir: -m.dir, dur: 220 }));
+  history = [];
+  setStatus("Solving…");
+  enqueue(moves, null, "Solved! ✨");
+}
+
+scrambleBtn.addEventListener("click", scramble);
+solveBtn.addEventListener("click", solve);
+updateUI();
+</script>
+</body>
+</html>

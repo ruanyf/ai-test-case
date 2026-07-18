@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Raycaster</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0a0c; overflow: hidden; }
+  canvas {
+    position: fixed; inset: 0; margin: auto;
+    width: min(100vw, 177.78vh); height: min(56.25vw, 100vh);
+    image-rendering: pixelated;
+  }
+  #hud {
+    position: fixed; left: 12px; top: 10px; pointer-events: none;
+    color: #bbb; font: 13px/1.4 monospace; text-shadow: 1px 1px 2px #000;
+  }
+  #start {
+    position: fixed; inset: 0; display: flex; cursor: pointer; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    background: rgba(0,0,0,.55); color: #eee; font: 16px/1.8 monospace;
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud">WASD move &middot; &larr;/&rarr; or mouse turn</div>
+<div id="start"><div>Click to play<br><small>W/S forward/back &middot; A/D strafe &middot; &larr;/&rarr; or mouse turn &middot; Esc release</small></div></div>
+<script>
+'use strict';
+
+// ---------- Map ('#' = brick, '%' = stone, '.' = empty, 'P' = player start) ----------
+const RAW_MAP = [
+  '########################',
+  '#........#.............#',
+  '#..P.....#.....%%......#',
+  '#........#.....%%......#',
+  '#........#.............#',
+  '#........####.##########',
+  '#......................#',
+  '#..%%.......##.........#',
+  '#..%%...#...##....%%...#',
+  '#.......#.........%%...#',
+  '#.##....#..####........#',
+  '#.##..........#....#...#',
+  '#........##...#....#...#',
+  '#.....#..##............#',
+  '#.....#...........#....#',
+  '########################',
+];
+const MAP_W = Math.max(...RAW_MAP.map(r => r.length));
+const MAP = RAW_MAP.map(r => r.padEnd(MAP_W, '#'));
+const MAP_H = MAP.length;
+
+function tileAt(x, y) {
+  const ix = x | 0, iy = y | 0;
+  if (ix < 0 || iy < 0 || ix >= MAP_W || iy >= MAP_H) return '#';
+  return MAP[iy][ix];
+}
+function isSolid(x, y) { return tileAt(x, y) !== '.'; }
+
+// ---------- Player ----------
+let px = 2.5, py = 2.5, angle = 0;
+for (let y = 0; y < MAP_H; y++) {
+  const x = MAP[y].indexOf('P');
+  if (x !== -1) {
+    px = x + 0.5; py = y + 0.5;
+    MAP[y] = MAP[y].replace('P', '.');
+    break;
+  }
+}
+const RADIUS = 0.2;      // collision circle radius
+const MOVE_SPEED = 3.0;  // tiles / second
+const TURN_SPEED = 2.4;  // radians / second
+const FOV = 0.66;        // plane half-length (~66 degrees)
+
+// ---------- Canvas ----------
+const RW = 480, RH = 270; // internal render resolution
+const cv = document.getElementById('game');
+cv.width = RW; cv.height = RH;
+const ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+const skyGrad = ctx.createLinearGradient(0, 0, 0, RH / 2);
+skyGrad.addColorStop(0, '#2e3440');
+skyGrad.addColorStop(1, '#0d1017');
+const floorGrad = ctx.createLinearGradient(0, RH / 2, 0, RH);
+floorGrad.addColorStop(0, '#1a140e');
+floorGrad.addColorStop(1, '#4a3f33');
+
+// ---------- Procedural 64x64 wall textures ----------
+const TEX = 64;
+function makeBrickTex() {
+  const c = document.createElement('canvas');
+  c.width = c.height = TEX;
+  const g = c.getContext('2d');
+  g.fillStyle = '#b3a290'; // mortar
+  g.fillRect(0, 0, TEX, TEX);
+  const bw = 32, bh = 16;
+  for (let row = 0; row < TEX / bh; row++) {
+    const off = (row % 2) * (bw / 2);
+    for (let col = -1; col <= TEX / bw; col++) {
+      const x = col * bw + off, y = row * bh;
+      const v = 0.82 + Math.random() * 0.35;
+      g.fillStyle = `rgb(${Math.min(255, 156 * v) | 0},${Math.min(255, 82 * v) | 0},${Math.min(255, 58 * v) | 0})`;
+      g.fillRect(x + 1, y + 1, bw - 2, bh - 2);
+      g.fillStyle = 'rgba(255,255,255,0.08)';
+      g.fillRect(x + 1, y + 1, bw - 2, 2);
+      g.fillStyle = 'rgba(0,0,0,0.18)';
+      g.fillRect(x + 1, y + bh - 3, bw - 2, 2);
+    }
+  }
+  return c;
+}
+function makeStoneTex() {
+  const c = document.createElement('canvas');
+  c.width = c.height = TEX;
+  const g = c.getContext('2d');
+  g.fillStyle = '#83878f';
+  g.fillRect(0, 0, TEX, TEX);
+  for (let i = 0; i < 260; i++) {
+    const s = 1 + (Math.random() * 3 | 0);
+    const a = (0.05 + Math.random() * 0.1).toFixed(3);
+    g.fillStyle = Math.random() < 0.5 ? `rgba(0,0,0,${a})` : `rgba(255,255,255,${a})`;
+    g.fillRect((Math.random() * TEX) | 0, (Math.random() * TEX) | 0, s, s);
+  }
+  g.fillStyle = 'rgba(0,0,0,0.25)';
+  g.fillRect(0, 0, TEX, 2);
+  g.fillRect(0, TEX - 2, TEX, 2);
+  return c;
+}
+const brickTex = makeBrickTex();
+const stoneTex = makeStoneTex();
+
+// ---------- Render ----------
+function render() {
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, RW, RH / 2);
+  ctx.fillStyle = floorGrad;
+  ctx.fillRect(0, RH / 2, RW, RH / 2);
+
+  const dirX = Math.cos(angle), dirY = Math.sin(angle);
+  const plX = -dirY * FOV, plY = dirX * FOV;
+
+  for (let x = 0; x < RW; x++) {
+    const cam = 2 * x / RW - 1;
+    const rdx = dirX + plX * cam;
+    const rdy = dirY + plY * cam;
+
+    // DDA through the grid
+    let mapX = px | 0, mapY = py | 0;
+    const dDX = rdx === 0 ? 1e30 : Math.abs(1 / rdx);
+    const dDY = rdy === 0 ? 1e30 : Math.abs(1 / rdy);
+    let stepX, stepY, sDX, sDY;
+    if (rdx < 0) { stepX = -1; sDX = (px - mapX) * dDX; } else { stepX = 1; sDX = (mapX + 1 - px) * dDX; }
+    if (rdy < 0) { stepY = -1; sDY = (py - mapY) * dDY; } else { stepY = 1; sDY = (mapY + 1 - py) * dDY; }
+
+    let side = 0, hit = '#';
+    for (let n = 0; n < 64; n++) {
+      if (sDX < sDY) { sDX += dDX; mapX += stepX; side = 0; }
+      else           { sDY += dDY; mapY += stepY; side = 1; }
+      hit = tileAt(mapX, mapY);
+      if (hit !== '.') break;
+    }
+
+    const perp = Math.max(side === 0 ? sDX - dDX : sDY - dDY, 0.01);
+    const lineH = RH / perp;
+    const y0 = (RH - lineH) / 2;
+
+    // texture column
+    let wallX = side === 0 ? py + perp * rdy : px + perp * rdx;
+    wallX -= Math.floor(wallX);
+    let tx = (wallX * TEX) | 0;
+    if (side === 0 && rdx > 0) tx = TEX - 1 - tx;
+    if (side === 1 && rdy < 0) tx = TEX - 1 - tx;
+    ctx.drawImage(hit === '%' ? stoneTex : brickTex, tx, 0, 1, TEX, x, y0, 1, lineH);
+
+    // depth + side shading
+    let shade = Math.min(perp / 11, 0.8);
+    if (side === 1) shade = Math.min(shade + 0.15, 0.85);
+    if (shade > 0.01) {
+      ctx.fillStyle = `rgba(0,0,0,${shade.toFixed(3)})`;
+      ctx.fillRect(x, y0, 1, lineH);
+    }
+  }
+
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.fillRect(RW / 2 - 1, RH / 2 - 1, 2, 2);
+}
+
+// ---------- Movement with wall collision (axis-separated => wall sliding) ----------
+function update(dt) {
+  const turn = TURN_SPEED * dt;
+  if (keys.ArrowLeft)  angle -= turn;
+  if (keys.ArrowRight) angle += turn;
+
+  const dirX = Math.cos(angle), dirY = Math.sin(angle);
+  const step = MOVE_SPEED * dt;
+  let mx = 0, my = 0;
+  if (keys.KeyW || keys.ArrowUp)   { mx += dirX * step; my += dirY * step; }
+  if (keys.KeyS || keys.ArrowDown) { mx -= dirX * step; my -= dirY * step; }
+  if (keys.KeyA)                   { mx += dirY * step; my -= dirX * step; }
+  if (keys.KeyD)                   { mx -= dirY * step; my += dirX * step; }
+
+  const nx = px + mx, ny = py + my;
+  if (mx !== 0 && !isSolid(nx + Math.sign(mx) * RADIUS, py)) px = nx;
+  if (my !== 0 && !isSolid(px, ny + Math.sign(my) * RADIUS)) py = ny;
+}
+
+// ---------- Input ----------
+const keys = Object.create(null);
+addEventListener('keydown', e => {
+  if (e.code.startsWith('Arrow')) e.preventDefault();
+  keys[e.code] = true;
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+const overlay = document.getElementById('start');
+overlay.addEventListener('click', () => cv.requestPointerLock());
+document.addEventListener('pointerlockchange', () => {
+  overlay.style.display = document.pointerLockElement === cv ? 'none' : 'flex';
+});
+document.addEventListener('mousemove', e => {
+  if (document.pointerLockElement === cv) angle += e.movementX * 0.0023;
+});
+
+// ---------- Main loop ----------
+let last = performance.now();
+function frame(t) {
+  const dt = Math.min((t - last) / 1000, 0.05);
+  last = t;
+  update(dt);
+  render();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
