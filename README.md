@@ -10,6 +10,7 @@
 1. [桌面应用测试] [macOS 网址演示 App](#Case06)
 1. [命令行工具测试] [词云生成](#Case07)
 1. [SVG 生成测试] [骑自行车的鹈鹕](#Case08)
+1. [网页算法可视化测试] [3D 魔方](#Case09)
 
 ## Case01
 
@@ -248,6 +249,18 @@ Credits: [Simon Willison](https://simonwillison.net/guides/agentic-engineering-p
 
 ```markdown
 Generate an SVG of a pelican riding a bicycle.
+```
+
+## Case09
+
+生成一个三维魔方，使用动画形式，一步步展示自动打乱和还原魔方的过程。
+
+![](https://d1md4c6gq9re9p.cloudfront.net/blog/grok-4.5-buildoff/rubiks-cube/claude-fable-5.poster.jpg)
+
+提示词
+
+```markdown
+Build a colorful, 3D-looking Rubik's Cube with Scramble and Solve buttons that visibly animate the rotations.
 ```
 
 ## 来源
