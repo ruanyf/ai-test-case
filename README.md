@@ -10,7 +10,8 @@
 1. [桌面应用测试] [macOS 网址演示 App](#Case06)
 1. [命令行工具测试] [词云生成](#Case07)
 1. [SVG 生成测试] [骑自行车的鹈鹕](#Case08)
-1. [网页算法可视化测试] [3D 魔方](#Case09)
+1. [算法可视化测试] [3D 魔方](#Case09)
+1. [开放世界测试] [DOOM 迷宫](#Case10)
 
 ## Case01
 
@@ -261,6 +262,18 @@ Generate an SVG of a pelican riding a bicycle.
 
 ```markdown
 Build a colorful, 3D-looking Rubik's Cube with Scramble and Solve buttons that visibly animate the rotations.
+```
+
+## Case10
+
+生成一个 Doom 式的迷宫场景，有天花板、地板和砖墙，以第一人称视角，可以用 WASD 四个键上下左右移动。
+
+![](https://d1md4c6gq9re9p.cloudfront.net/blog/gpt-5.6-buildoff/raycaster/gpt-5.6-sol.poster.jpg)
+
+提示词
+
+```markdown
+First-person raycaster you walk with WASD, shaded walls with depth, floor and ceiling, collision.
 ```
 
 ## 来源
